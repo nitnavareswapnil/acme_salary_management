@@ -4,7 +4,7 @@
 A lean salary management platform (Spring Boot backend + Angular frontend) for an HR Manager to manage 10,000 global employees and query core salary insights. Source of truth for scope: `docs/requirements.md`.
 
 ## Core Engineering Directives
-1. **No over-engineering (YAGNI):** Minimal, direct code for current requirements only. No speculative abstractions, helper layers, or unrequested features.
+1. **No over-engineering (YAGNI):** Minimal, direct code for current requirements only. No speculative abstractions, helper layers, or unrequested features (except standard service interfaces).
 2. **TDD:** Write failing tests first, run them (RED), implement the minimum (GREEN), then refactor. Prefer meaningful, fast, deterministic tests over coverage numbers.
 3. **SOLID, simple:** Single-responsibility classes, constructor injection, no field injection.
 4. **Transactions:** `@Transactional` on service methods that change state; `readOnly = true` for reads.
@@ -12,7 +12,9 @@ A lean salary management platform (Spring Boot backend + Angular frontend) for a
 6. **Scope discipline:** If a task needs something outside `docs/requirements.md` or a new dependency, stop and ask first.
 
 ## Architecture & Conventions
-- **Backend layers:** controller -> service -> repository -> DB. Package by feature (`employee`, `insights`, `seed`).
+- **Backend layers:** controller -> service -> repository -> DB.
+- **Packaging:** feature-based root packages (`employee`, `insights`, `seed`), each containing layer sub-packages: `controller`, `service`, `repository`, `entity`, `dto`, `exception` (e.g. `com.acme.salary.employee.service`).
+- **Service pattern:** the service layer always uses an interface and implementation pair (`EmployeeService` / `EmployeeServiceImpl`). `@Transactional` goes on the implementation; controllers and tests depend on the interface.
 - Controllers are thin; business logic lives in services. Never expose JPA entities in the API - use DTO records.
 - Validate input with Bean Validation; handle errors in one `@ControllerAdvice` with a consistent error body.
 - Schema changes only via Flyway migrations (`src/main/resources/db/migration`); never rely on `ddl-auto` to create schema.
