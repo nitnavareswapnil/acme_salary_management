@@ -1,4 +1,4 @@
-package com.acme.salary.employee;
+package com.acme.salary.employee.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -36,6 +36,15 @@ public class Employee {
 	}
 
 	public Employee(String name, String email, String department, String jobTitle, Country country, BigDecimal baseSalary) {
+		this.name = name;
+		this.email = email;
+		this.department = department;
+		this.jobTitle = jobTitle;
+		this.country = country;
+		this.baseSalary = baseSalary;
+	}
+
+	public void update(String name, String email, String department, String jobTitle, Country country, BigDecimal baseSalary) {
 		this.name = name;
 		this.email = email;
 		this.department = department;

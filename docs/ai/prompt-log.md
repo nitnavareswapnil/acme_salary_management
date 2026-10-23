@@ -12,3 +12,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 5: `Country` enum with currency, `V1__create_employee.sql` (unique email index; country, job_title, department indexes), Testcontainers `EmployeeRepositoryTest`, then entity and repository.
 **My review:** TODO (author). Points to check: RED was a compile failure (classes did not exist); entity has no setters yet (added when update is built in step 6); `Country` stored as a string so the currency stays derived; the "duplicate key" ERROR line in the test output is the expected rejection.
 **Result:** `./mvnw test` passes (6 tests).
+
+### 6 Employee service  (commit: feat(backend): EmployeeService CRUD with duplicate-email and not-found handling)
+**Prompt:** Plan step 6: request/response records, `EmployeeNotFoundException`, `DuplicateEmailException`, Mockito `EmployeeServiceTest`, then the service. Deviation: re-run with layer sub-packages (`dto`, `entity`, `exception`, `repository`, `service`) and an `EmployeeService` interface with `EmployeeServiceImpl`.
+**My review:** TODO (author). Points to check: RED was a compile failure; duplicate checks use `existsByEmail` (create) and `existsByEmailAndIdNot` (update) so an employee can keep their own email; update relies on dirty checking inside the transaction instead of `save()`; the DB unique index still backs this up against races; Bean Validation annotations are exercised in the step 7 controller tests; layer sub-packages sit inside the `employee` feature package; the interface has a single implementation, a convention rather than a need.
+**Result:** `./mvnw test` passes (16 tests, 10 new).

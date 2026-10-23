@@ -1,4 +1,4 @@
-package com.acme.salary.employee;
+package com.acme.salary.employee.entity;
 
 // Currency is derived from country rather than stored; salaries are never converted between currencies.
 public enum Country {

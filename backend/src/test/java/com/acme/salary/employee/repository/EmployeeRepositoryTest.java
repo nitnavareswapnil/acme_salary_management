@@ -1,5 +1,7 @@
-package com.acme.salary.employee;
+package com.acme.salary.employee.repository;
 
+import com.acme.salary.employee.entity.Country;
+import com.acme.salary.employee.entity.Employee;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
