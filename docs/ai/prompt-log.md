@@ -37,3 +37,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 10: `JobTitleAverage`, JPQL `GROUP BY jobTitle` for one country sorted by average descending, service method, `GET /api/insights/countries/{country}/job-titles`; tests first.
 **My review:** TODO (author). Points to check: RED was a compile failure; same sum / count approach as step 9 (no `Double`), now shared through one private `average` helper; `ORDER BY SUM / COUNT DESC` sorts on the exact average in the database, job title breaks ties; unknown country returns 400 through the existing type-mismatch handler, no new error code; the repository test uses data where sort-by-average differs from alphabetical and from headcount order.
 **Result:** `./mvnw test` passes (63 tests, 7 new).
+
+### 11 Data generator  (commit: feat(backend): deterministic employee data generator)
+**Prompt:** Plan step 11: `EmployeeDataGenerator` with fixed-seed `Random`, name/department/job-title pools, country-based salary ranges, unique emails, US/INDIA/UK only; unit tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; a new `Random(SEED)` per call makes output identical on every fresh database; countries are listed explicitly, not `Country.values()`, so a future country cannot change the seed data; salary is integer maths (baseline x job-title level x +/-15%), no floating point; the running index in the email guarantees uniqueness even when names repeat; `seed` stays flat because it has no controller, service or DTO layers.
+**Result:** `./mvnw test` passes (70 tests, 7 new).
