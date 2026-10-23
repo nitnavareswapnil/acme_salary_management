@@ -1,13 +1,21 @@
 package com.acme.salary.employee.service;
 
+import com.acme.salary.common.dto.PageResponse;
 import com.acme.salary.employee.dto.EmployeeRequest;
 import com.acme.salary.employee.dto.EmployeeResponse;
+import com.acme.salary.employee.entity.Country;
+
+import java.util.List;
 
 public interface EmployeeService {
 
 	EmployeeResponse create(EmployeeRequest request);
 
 	EmployeeResponse get(Long id);
+
+	PageResponse<EmployeeResponse> list(String search, Country country, String department, int page, int size);
+
+	List<String> departments();
 
 	EmployeeResponse update(Long id, EmployeeRequest request);
 

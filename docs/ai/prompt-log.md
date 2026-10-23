@@ -22,3 +22,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 7: `GlobalExceptionHandler` (400/404/409, one body shape), `EmployeeController` (GET by id, POST 201, PUT 200, DELETE 204), `@WebMvcTest` slice tests first.
 **My review:** TODO (author). Points to check: RED was a compile failure; the handler lives in `common.exception` because it is cross-cutting; POST returns a `Location` header; unknown enum values and bad JSON map to 400 "Malformed request body"; the unique-email race (`DataIntegrityViolationException`) was mapped to 409 in a follow-up prompt, with a generic message so no DB details leak.
 **Result:** `./mvnw test` passes (30 tests, 14 new).
+
+### 8 Filtered, paginated list  (commit: feat(backend): paginated, filtered employee list and departments endpoint)
+**Prompt:** Plan step 8: JPQL search (name/email, country, department) with named parameters, `GET /api/employees` with paging (size capped at 100, sort by name then id), `GET /api/employees/departments`; repository fixtures plus service and controller tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; the search term becomes a lower-case `%term%` pattern in the service (never null, so Postgres never has to type a null string); null country/department mean "no filter"; invalid paging is clamped rather than rejected; `PageResponse` is our own record, not Spring's `PageImpl`; an unknown `country` value returns the standard 400 body (new handler); `%` and `_` typed by the user act as wildcards, left as is.
+**Result:** `./mvnw test` passes (48 tests, 17 new).

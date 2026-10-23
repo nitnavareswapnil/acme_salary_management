@@ -1,5 +1,6 @@
 package com.acme.salary.employee.controller;
 
+import com.acme.salary.common.dto.PageResponse;
 import com.acme.salary.employee.dto.EmployeeRequest;
 import com.acme.salary.employee.dto.EmployeeResponse;
 import com.acme.salary.employee.entity.Country;
@@ -19,6 +20,7 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -45,6 +47,50 @@ class EmployeeControllerTest {
 
 	@MockitoBean
 	private EmployeeService service;
+
+	@Test
+	void listPassesFiltersAndPagingToService() throws Exception {
+		when(service.list("asha", Country.INDIA, "Engineering", 1, 10))
+				.thenReturn(new PageResponse<>(List.of(response()), 1, 10, 11, 2));
+
+		mockMvc.perform(get("/api/employees")
+						.param("search", "asha").param("country", "INDIA").param("department", "Engineering")
+						.param("page", "1").param("size", "10"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content[0].name").value("Asha Rao"))
+				.andExpect(jsonPath("$.page").value(1))
+				.andExpect(jsonPath("$.size").value(10))
+				.andExpect(jsonPath("$.totalElements").value(11))
+				.andExpect(jsonPath("$.totalPages").value(2));
+	}
+
+	@Test
+	void listUsesDefaultsWhenNoParametersAreGiven() throws Exception {
+		when(service.list(null, null, null, 0, 20)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0));
+
+		mockMvc.perform(get("/api/employees"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content").isEmpty());
+	}
+
+	@Test
+	void listRejectsUnknownCountryWithStandardErrorBody() throws Exception {
+		mockMvc.perform(get("/api/employees").param("country", "FRANCE"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value("Invalid value for parameter 'country'"))
+				.andExpect(jsonPath("$.errors").isEmpty());
+	}
+
+	@Test
+	void listsDepartments() throws Exception {
+		when(service.departments()).thenReturn(List.of("Engineering", "Sales"));
+
+		mockMvc.perform(get("/api/employees/departments"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0]").value("Engineering"))
+				.andExpect(jsonPath("$[1]").value("Sales"));
+	}
 
 	@Test
 	void getsEmployeeById() throws Exception {

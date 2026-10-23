@@ -3,6 +3,9 @@ package com.acme.salary.employee.repository;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
@@ -14,6 +17,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -80,6 +84,99 @@ class EmployeeRepositoryTest {
 		assertThat(Country.US.getCurrency()).isEqualTo("USD");
 		assertThat(Country.INDIA.getCurrency()).isEqualTo("INR");
 		assertThat(Country.UK.getCurrency()).isEqualTo("GBP");
+	}
+
+	@Test
+	void searchWithoutFiltersReturnsEveryone() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", null, null, PageRequest.of(0, 10));
+
+		assertThat(page.getTotalElements()).isEqualTo(5);
+	}
+
+	@Test
+	void searchMatchesNameCaseInsensitively() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%asha%", null, null, PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail)
+				.containsExactlyInAnyOrder("asha@acme.com", "asha.rao2@acme.com");
+	}
+
+	@Test
+	void searchMatchesEmail() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%ben@acme%", null, null, PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getName).containsExactly("Ben Carter");
+	}
+
+	@Test
+	void filtersByCountry() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", Country.INDIA, null, PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getCountry).containsOnly(Country.INDIA);
+		assertThat(page.getTotalElements()).isEqualTo(2);
+	}
+
+	@Test
+	void filtersByDepartment() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", null, "Sales", PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getDepartment).containsOnly("Sales");
+		assertThat(page.getTotalElements()).isEqualTo(3);
+	}
+
+	@Test
+	void combinesSearchAndFiltersWithAnd() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%asha%", Country.UK, "Sales", PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactly("asha.rao2@acme.com");
+	}
+
+	@Test
+	void pagesInStableOrderByNameThenId() {
+		saveFixtures();
+		Sort sort = Sort.by("name", "id");
+
+		Page<Employee> first = repository.search("%", null, null, PageRequest.of(0, 3, sort));
+		Page<Employee> second = repository.search("%", null, null, PageRequest.of(1, 3, sort));
+
+		// The two "Asha Rao" rows tie on name, so id decides their order.
+		assertThat(first.getContent()).extracting(Employee::getEmail)
+				.containsExactly("asha@acme.com", "asha.rao2@acme.com", "ben@acme.com");
+		assertThat(second.getContent()).extracting(Employee::getName).containsExactly("Chitra Iyer", "Dan Smith");
+		assertThat(first.getTotalPages()).isEqualTo(2);
+		assertThat(first.getTotalElements()).isEqualTo(5);
+	}
+
+	@Test
+	void listsDistinctDepartmentsAlphabetically() {
+		saveFixtures();
+
+		List<String> departments = repository.findDistinctDepartments();
+
+		assertThat(departments).containsExactly("Engineering", "Sales");
+	}
+
+	private void saveFixtures() {
+		repository.saveAll(List.of(
+				new Employee("Asha Rao", "asha@acme.com", "Engineering", "Software Engineer", Country.INDIA, new BigDecimal("55000.00")),
+				new Employee("Ben Carter", "ben@acme.com", "Engineering", "Software Engineer", Country.US, new BigDecimal("90000.00")),
+				new Employee("Chitra Iyer", "chitra@acme.com", "Sales", "Account Manager", Country.INDIA, new BigDecimal("40000.00")),
+				new Employee("Asha Rao", "asha.rao2@acme.com", "Sales", "Account Manager", Country.UK, new BigDecimal("50000.00")),
+				new Employee("Dan Smith", "dan@acme.com", "Sales", "Sales Lead", Country.US, new BigDecimal("70000.00"))));
+		entityManager.flush();
+		entityManager.clear();
 	}
 
 	private Employee employee(String email, String salary) {

@@ -9,6 +9,7 @@ import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.util.List;
 
@@ -27,6 +28,12 @@ public class GlobalExceptionHandler {
 	@ExceptionHandler(HttpMessageNotReadableException.class)
 	public ResponseEntity<ErrorResponse> handleUnreadable() {
 		return respond(HttpStatus.BAD_REQUEST, "Malformed request body", List.of());
+	}
+
+	// A query/path value of the wrong type, e.g. an unsupported country.
+	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
+	public ResponseEntity<ErrorResponse> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
+		return respond(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + exception.getName() + "'", List.of());
 	}
 
 	@ExceptionHandler(EmployeeNotFoundException.class)
