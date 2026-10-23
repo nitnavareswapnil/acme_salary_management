@@ -14,3 +14,6 @@ frontend/.angular/
 .vscode/
 *.iml
 .local/
+
+# Local planning notes
+docs/development-plan.md
