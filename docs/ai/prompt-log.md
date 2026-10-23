@@ -17,3 +17,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 6: request/response records, `EmployeeNotFoundException`, `DuplicateEmailException`, Mockito `EmployeeServiceTest`, then the service. Deviation: re-run with layer sub-packages (`dto`, `entity`, `exception`, `repository`, `service`) and an `EmployeeService` interface with `EmployeeServiceImpl`.
 **My review:** TODO (author). Points to check: RED was a compile failure; duplicate checks use `existsByEmail` (create) and `existsByEmailAndIdNot` (update) so an employee can keep their own email; update relies on dirty checking inside the transaction instead of `save()`; the DB unique index still backs this up against races; Bean Validation annotations are exercised in the step 7 controller tests; layer sub-packages sit inside the `employee` feature package; the interface has a single implementation, a convention rather than a need.
 **Result:** `./mvnw test` passes (16 tests, 10 new).
+
+### 7 Controller and error handling  (commit: feat(backend): EmployeeController, DTOs, global exception handler)
+**Prompt:** Plan step 7: `GlobalExceptionHandler` (400/404/409, one body shape), `EmployeeController` (GET by id, POST 201, PUT 200, DELETE 204), `@WebMvcTest` slice tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; the handler lives in `common.exception` because it is cross-cutting; POST returns a `Location` header; unknown enum values and bad JSON map to 400 "Malformed request body"; the unique-email race (`DataIntegrityViolationException`) was mapped to 409 in a follow-up prompt, with a generic message so no DB details leak.
+**Result:** `./mvnw test` passes (30 tests, 14 new).
