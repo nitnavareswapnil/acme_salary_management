@@ -1,6 +1,7 @@
 package com.acme.salary.employee.repository;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.dto.JobTitleAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import org.junit.jupiter.api.Test;
@@ -200,6 +201,33 @@ class EmployeeRepositoryTest {
 	@Test
 	void aggregateIsEmptyWithoutEmployees() {
 		assertThat(repository.aggregateByCountry()).isEmpty();
+	}
+
+	@Test
+	void aggregatesJobTitlesForOneCountrySortedByAverageDescending() {
+		repository.saveAll(List.of(
+				new Employee("A", "a@acme.com", "Engineering", "Software Engineer", Country.INDIA, new BigDecimal("55000.00")),
+				new Employee("B", "b@acme.com", "Engineering", "Software Engineer", Country.INDIA, new BigDecimal("45000.00")),
+				new Employee("C", "c@acme.com", "Sales", "Account Manager", Country.INDIA, new BigDecimal("80000.00")),
+				new Employee("D", "d@acme.com", "Engineering", "Software Engineer", Country.UK, new BigDecimal("100000.00"))));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<JobTitleAggregate> aggregates = repository.aggregateByJobTitle(Country.INDIA);
+
+		// Account Manager (80000) outranks Software Engineer (50000) although it has fewer people and sorts first alphabetically.
+		assertThat(aggregates).extracting(JobTitleAggregate::jobTitle)
+				.containsExactly("Account Manager", "Software Engineer");
+		JobTitleAggregate engineers = aggregates.get(1);
+		assertThat(engineers.totalSalary()).isEqualTo(new BigDecimal("100000.00"));
+		assertThat(engineers.employeeCount()).isEqualTo(2);
+	}
+
+	@Test
+	void jobTitleAggregateIsEmptyForCountryWithoutEmployees() {
+		repository.saveAndFlush(employee("asha@acme.com", "55000.00"));
+
+		assertThat(repository.aggregateByJobTitle(Country.UK)).isEmpty();
 	}
 
 	private void saveFixtures() {

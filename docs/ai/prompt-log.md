@@ -32,3 +32,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 9: `CountrySalaryStats`, JPQL `GROUP BY` in `EmployeeRepository`, `InsightsService`/`Impl`, `GET /api/insights/countries`; tests first.
 **My review:** TODO (author). Points to check: RED was a compile failure; the query returns min/max/sum/count and the service divides (sum / count, 2 dp HALF_UP) because JPQL `AVG` returns a `Double`, which would put floating point into money; a tie case (100.05 / 2 = 50.025 -> 50.03) proves HALF_UP rather than HALF_EVEN; countries with no employees produce no group, so the divisor is never zero; the aggregate query sits in `EmployeeRepository` (as asked) with its row record in `employee.dto`.
 **Result:** `./mvnw test` passes (56 tests, 8 new).
+
+### 10 Job-title insights  (commit: feat(backend): average salary by job title within a country)
+**Prompt:** Plan step 10: `JobTitleAverage`, JPQL `GROUP BY jobTitle` for one country sorted by average descending, service method, `GET /api/insights/countries/{country}/job-titles`; tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; same sum / count approach as step 9 (no `Double`), now shared through one private `average` helper; `ORDER BY SUM / COUNT DESC` sorts on the exact average in the database, job title breaks ties; unknown country returns 400 through the existing type-mismatch handler, no new error code; the repository test uses data where sort-by-average differs from alphabetical and from headcount order.
+**Result:** `./mvnw test` passes (63 tests, 7 new).

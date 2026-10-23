@@ -2,6 +2,7 @@ package com.acme.salary.insights.controller;
 
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.JobTitleAverage;
 import com.acme.salary.insights.service.InsightsService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,5 +49,36 @@ class InsightsControllerTest {
 		mockMvc.perform(get("/api/insights/countries"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$").isEmpty());
+	}
+
+	@Test
+	void returnsJobTitleAveragesForCountry() throws Exception {
+		when(service.jobTitleAverages(Country.INDIA)).thenReturn(List.of(
+				new JobTitleAverage("Account Manager", new BigDecimal("80000.00"), 1),
+				new JobTitleAverage("Software Engineer", new BigDecimal("50000.00"), 2)));
+
+		mockMvc.perform(get("/api/insights/countries/INDIA/job-titles"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].jobTitle").value("Account Manager"))
+				.andExpect(jsonPath("$[0].avgSalary").value(80000.00))
+				.andExpect(jsonPath("$[0].employeeCount").value(1))
+				.andExpect(jsonPath("$[1].jobTitle").value("Software Engineer"));
+	}
+
+	@Test
+	void returnsEmptyListForCountryWithoutEmployees() throws Exception {
+		when(service.jobTitleAverages(Country.UK)).thenReturn(List.of());
+
+		mockMvc.perform(get("/api/insights/countries/UK/job-titles"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$").isEmpty());
+	}
+
+	@Test
+	void rejectsUnknownCountryWith400() throws Exception {
+		mockMvc.perform(get("/api/insights/countries/FRANCE/job-titles"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value("Invalid value for parameter 'country'"));
 	}
 }

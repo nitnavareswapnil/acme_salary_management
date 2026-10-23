@@ -1,8 +1,10 @@
 package com.acme.salary.insights.service;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.repository.EmployeeRepository;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.JobTitleAverage;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,11 +27,23 @@ public class InsightsServiceImpl implements InsightsService {
 		return repository.aggregateByCountry().stream().map(this::toStats).toList();
 	}
 
+	@Override
+	@Transactional(readOnly = true)
+	public List<JobTitleAverage> jobTitleAverages(Country country) {
+		return repository.aggregateByJobTitle(country).stream()
+				.map(aggregate -> new JobTitleAverage(aggregate.jobTitle(),
+						average(aggregate.totalSalary(), aggregate.employeeCount()), aggregate.employeeCount()))
+				.toList();
+	}
+
 	private CountrySalaryStats toStats(CountrySalaryAggregate aggregate) {
-		// Groups only exist for countries that have employees, so the count is never zero.
-		BigDecimal average = aggregate.totalSalary()
-				.divide(BigDecimal.valueOf(aggregate.employeeCount()), 2, RoundingMode.HALF_UP);
 		return new CountrySalaryStats(aggregate.country(), aggregate.country().getCurrency(),
-				aggregate.minSalary(), aggregate.maxSalary(), average, aggregate.employeeCount());
+				aggregate.minSalary(), aggregate.maxSalary(),
+				average(aggregate.totalSalary(), aggregate.employeeCount()), aggregate.employeeCount());
+	}
+
+	// Groups only exist when they have employees, so the count is never zero.
+	private BigDecimal average(BigDecimal total, long count) {
+		return total.divide(BigDecimal.valueOf(count), 2, RoundingMode.HALF_UP);
 	}
 }

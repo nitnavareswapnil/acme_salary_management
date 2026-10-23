@@ -1,9 +1,11 @@
 package com.acme.salary.insights.service;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.dto.JobTitleAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.repository.EmployeeRepository;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.JobTitleAverage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -61,6 +63,28 @@ class InsightsServiceTest {
 		when(repository.aggregateByCountry()).thenReturn(List.of());
 
 		assertThat(service.countryStats()).isEmpty();
+	}
+
+	@Test
+	void jobTitleAveragesAreRoundedHalfUpAndKeepRepositoryOrder() {
+		when(repository.aggregateByJobTitle(Country.INDIA)).thenReturn(List.of(
+				// 100.05 / 2 = 50.025, a tie that HALF_UP sends to 50.03.
+				new JobTitleAggregate("Account Manager", new BigDecimal("100.05"), 2),
+				new JobTitleAggregate("Software Engineer", new BigDecimal("100.01"), 3)));
+
+		List<JobTitleAverage> averages = service.jobTitleAverages(Country.INDIA);
+
+		assertThat(averages).extracting(JobTitleAverage::jobTitle).containsExactly("Account Manager", "Software Engineer");
+		assertThat(averages.get(0).avgSalary()).isEqualTo(new BigDecimal("50.03"));
+		assertThat(averages.get(0).employeeCount()).isEqualTo(2);
+		assertThat(averages.get(1).avgSalary()).isEqualTo(new BigDecimal("33.34"));
+	}
+
+	@Test
+	void jobTitleAveragesAreEmptyForCountryWithoutEmployees() {
+		when(repository.aggregateByJobTitle(Country.US)).thenReturn(List.of());
+
+		assertThat(service.jobTitleAverages(Country.US)).isEmpty();
 	}
 
 	private CountrySalaryAggregate aggregate(Country country, String min, String max, String total, long count) {

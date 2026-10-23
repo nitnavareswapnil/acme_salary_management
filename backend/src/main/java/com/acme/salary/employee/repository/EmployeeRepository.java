@@ -1,6 +1,7 @@
 package com.acme.salary.employee.repository;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.dto.JobTitleAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import org.springframework.data.domain.Page;
@@ -39,4 +40,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 			ORDER BY e.country
 			""")
 	List<CountrySalaryAggregate> aggregateByCountry();
+
+	// Ordered by the exact average (total / count, no rounding) with job title as tie-break for a stable order.
+	@Query("""
+			SELECT new com.acme.salary.employee.dto.JobTitleAggregate(e.jobTitle, SUM(e.baseSalary), COUNT(e))
+			FROM Employee e
+			WHERE e.country = :country
+			GROUP BY e.jobTitle
+			ORDER BY SUM(e.baseSalary) / COUNT(e) DESC, e.jobTitle
+			""")
+	List<JobTitleAggregate> aggregateByJobTitle(@Param("country") Country country);
 }
