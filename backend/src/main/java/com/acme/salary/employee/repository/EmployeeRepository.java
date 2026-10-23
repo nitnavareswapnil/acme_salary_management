@@ -1,5 +1,6 @@
 package com.acme.salary.employee.repository;
 
+import com.acme.salary.employee.dto.CountrySalaryAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import org.springframework.data.domain.Page;
@@ -28,4 +29,14 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
 	@Query("SELECT DISTINCT e.department FROM Employee e ORDER BY e.department")
 	List<String> findDistinctDepartments();
+
+	// SUM and COUNT instead of AVG: JPQL's AVG returns a Double, which would put floating point into money.
+	@Query("""
+			SELECT new com.acme.salary.employee.dto.CountrySalaryAggregate(
+			    e.country, MIN(e.baseSalary), MAX(e.baseSalary), SUM(e.baseSalary), COUNT(e))
+			FROM Employee e
+			GROUP BY e.country
+			ORDER BY e.country
+			""")
+	List<CountrySalaryAggregate> aggregateByCountry();
 }

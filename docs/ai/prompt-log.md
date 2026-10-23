@@ -27,3 +27,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 8: JPQL search (name/email, country, department) with named parameters, `GET /api/employees` with paging (size capped at 100, sort by name then id), `GET /api/employees/departments`; repository fixtures plus service and controller tests first.
 **My review:** TODO (author). Points to check: RED was a compile failure; the search term becomes a lower-case `%term%` pattern in the service (never null, so Postgres never has to type a null string); null country/department mean "no filter"; invalid paging is clamped rather than rejected; `PageResponse` is our own record, not Spring's `PageImpl`; an unknown `country` value returns the standard 400 body (new handler); `%` and `_` typed by the user act as wildcards, left as is.
 **Result:** `./mvnw test` passes (48 tests, 17 new).
+
+### 9 Country insights  (commit: feat(backend): salary-by-country insights)
+**Prompt:** Plan step 9: `CountrySalaryStats`, JPQL `GROUP BY` in `EmployeeRepository`, `InsightsService`/`Impl`, `GET /api/insights/countries`; tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; the query returns min/max/sum/count and the service divides (sum / count, 2 dp HALF_UP) because JPQL `AVG` returns a `Double`, which would put floating point into money; a tie case (100.05 / 2 = 50.025 -> 50.03) proves HALF_UP rather than HALF_EVEN; countries with no employees produce no group, so the divisor is never zero; the aggregate query sits in `EmployeeRepository` (as asked) with its row record in `employee.dto`.
+**Result:** `./mvnw test` passes (56 tests, 8 new).

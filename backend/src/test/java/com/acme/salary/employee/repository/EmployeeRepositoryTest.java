@@ -1,5 +1,6 @@
 package com.acme.salary.employee.repository;
 
+import com.acme.salary.employee.dto.CountrySalaryAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import org.junit.jupiter.api.Test;
@@ -166,6 +167,39 @@ class EmployeeRepositoryTest {
 		List<String> departments = repository.findDistinctDepartments();
 
 		assertThat(departments).containsExactly("Engineering", "Sales");
+	}
+
+	@Test
+	void aggregatesSalariesPerCountryOrderedByCountry() {
+		saveFixtures();
+
+		List<CountrySalaryAggregate> aggregates = repository.aggregateByCountry();
+
+		assertThat(aggregates).extracting(CountrySalaryAggregate::country)
+				.containsExactly(Country.INDIA, Country.UK, Country.US);
+		CountrySalaryAggregate india = aggregates.get(0);
+		assertThat(india.minSalary()).isEqualTo(new BigDecimal("40000.00"));
+		assertThat(india.maxSalary()).isEqualTo(new BigDecimal("55000.00"));
+		assertThat(india.totalSalary()).isEqualTo(new BigDecimal("95000.00"));
+		assertThat(india.employeeCount()).isEqualTo(2);
+		CountrySalaryAggregate us = aggregates.get(2);
+		assertThat(us.totalSalary()).isEqualTo(new BigDecimal("160000.00"));
+		assertThat(us.employeeCount()).isEqualTo(2);
+	}
+
+	@Test
+	void aggregateOmitsCountriesWithoutEmployees() {
+		repository.save(employee("asha@acme.com", "55000.00"));
+		entityManager.flush();
+		entityManager.clear();
+
+		assertThat(repository.aggregateByCountry()).extracting(CountrySalaryAggregate::country)
+				.containsExactly(Country.INDIA);
+	}
+
+	@Test
+	void aggregateIsEmptyWithoutEmployees() {
+		assertThat(repository.aggregateByCountry()).isEmpty();
 	}
 
 	private void saveFixtures() {
