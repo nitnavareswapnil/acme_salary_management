@@ -42,3 +42,8 @@ Format: see `prompt-template.md`.
 **Prompt:** Plan step 11: `EmployeeDataGenerator` with fixed-seed `Random`, name/department/job-title pools, country-based salary ranges, unique emails, US/INDIA/UK only; unit tests first.
 **My review:** TODO (author). Points to check: RED was a compile failure; a new `Random(SEED)` per call makes output identical on every fresh database; countries are listed explicitly, not `Country.values()`, so a future country cannot change the seed data; salary is integer maths (baseline x job-title level x +/-15%), no floating point; the running index in the email guarantees uniqueness even when names repeat; `seed` stays flat because it has no controller, service or DTO layers.
 **Result:** `./mvnw test` passes (70 tests, 7 new).
+
+### 12 Seeder  (commit: feat(backend): seed 10,000 employees on first startup)
+**Prompt:** Plan step 12: `EmployeeSeeder` `CommandLineRunner`, skip when the table has data, `JdbcTemplate.batchUpdate`, log elapsed time; Testcontainers tests first.
+**My review:** TODO (author). Points to check: RED was a compile failure; the whole seed runs in one `@Transactional` so a failure leaves the table empty and the next start retries (a half-filled table would look "already seeded"); emptiness check is `EXISTS`, not `COUNT`; the `@SpringBootTest` contexts now seed on startup, so each seeder test truncates first; a fingerprint test proves two fresh databases get identical data; seeding took about 75 ms for 10,000 rows locally (logged, not asserted, to keep the test deterministic).
+**Result:** `./mvnw test` passes (74 tests, 4 new).
