@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService {
@@ -33,10 +34,11 @@ public class EmployeeServiceImpl implements EmployeeService {
 	@Override
 	@Transactional
 	public EmployeeResponse create(EmployeeRequest request) {
-		if (repository.existsByEmail(request.email())) {
-			throw new DuplicateEmailException(request.email());
+		String email = normalise(request.email());
+		if (repository.existsByEmail(email)) {
+			throw new DuplicateEmailException(email);
 		}
-		Employee employee = new Employee(request.name(), request.email(), request.department(),
+		Employee employee = new Employee(request.name(), email, request.department(),
 				request.jobTitle(), request.country(), request.baseSalary());
 		return EmployeeResponse.from(repository.save(employee));
 	}
@@ -65,11 +67,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 	@Transactional
 	public EmployeeResponse update(Long id, EmployeeRequest request) {
 		Employee employee = find(id);
+		String email = normalise(request.email());
 		// Excluding this employee's own row lets them keep their email.
-		if (repository.existsByEmailAndIdNot(request.email(), id)) {
-			throw new DuplicateEmailException(request.email());
+		if (repository.existsByEmailAndIdNot(email, id)) {
+			throw new DuplicateEmailException(email);
 		}
-		employee.update(request.name(), request.email(), request.department(),
+		employee.update(request.name(), email, request.department(),
 				request.jobTitle(), request.country(), request.baseSalary());
 		// No save(): the entity is managed, so the transaction flushes the change.
 		return EmployeeResponse.from(employee);
@@ -88,6 +91,11 @@ public class EmployeeServiceImpl implements EmployeeService {
 	private String toPattern(String search) {
 		String term = blankToNull(search);
 		return term == null ? "%" : "%" + term.toLowerCase() + "%";
+	}
+
+	// Emails are stored lower-case so the unique index also catches addresses that differ only by case.
+	private String normalise(String email) {
+		return email.trim().toLowerCase(Locale.ROOT);
 	}
 
 	private String blankToNull(String value) {

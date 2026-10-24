@@ -68,6 +68,25 @@ class EmployeeServiceTest {
 	}
 
 	@Test
+	void createStoresEmailInLowerCase() {
+		when(repository.existsByEmail("asha@acme.com")).thenReturn(false);
+		when(repository.save(any(Employee.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+		EmployeeResponse response = service.create(request("Asha@ACME.com", Country.INDIA, "55000.00"));
+
+		assertThat(response.email()).isEqualTo("asha@acme.com");
+	}
+
+	@Test
+	void createRejectsEmailThatDiffersOnlyByCase() {
+		when(repository.existsByEmail("asha@acme.com")).thenReturn(true);
+
+		assertThatThrownBy(() -> service.create(request("ASHA@acme.com", Country.INDIA, "55000.00")))
+				.isInstanceOf(DuplicateEmailException.class);
+		verify(repository, never()).save(any());
+	}
+
+	@Test
 	void getsEmployeeById() {
 		when(repository.findById(1L)).thenReturn(Optional.of(employee("asha@acme.com", Country.UK)));
 
@@ -96,6 +115,25 @@ class EmployeeServiceTest {
 		assertThat(response.country()).isEqualTo(Country.US);
 		assertThat(response.currency()).isEqualTo("USD");
 		assertThat(response.baseSalary()).isEqualTo(new BigDecimal("90000.00"));
+	}
+
+	@Test
+	void updateStoresEmailInLowerCase() {
+		when(repository.findById(1L)).thenReturn(Optional.of(employee("asha@acme.com", Country.INDIA)));
+		when(repository.existsByEmailAndIdNot("asha.rao@acme.com", 1L)).thenReturn(false);
+
+		EmployeeResponse response = service.update(1L, request("Asha.Rao@ACME.com", Country.INDIA, "55000.00"));
+
+		assertThat(response.email()).isEqualTo("asha.rao@acme.com");
+	}
+
+	@Test
+	void updateRejectsEmailOwnedByAnotherEmployeeWithDifferentCase() {
+		when(repository.findById(1L)).thenReturn(Optional.of(employee("asha@acme.com", Country.INDIA)));
+		when(repository.existsByEmailAndIdNot("ravi@acme.com", 1L)).thenReturn(true);
+
+		assertThatThrownBy(() -> service.update(1L, request("RAVI@acme.com", Country.INDIA, "55000.00")))
+				.isInstanceOf(DuplicateEmailException.class);
 	}
 
 	@Test
