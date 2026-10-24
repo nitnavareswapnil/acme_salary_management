@@ -1,0 +1,20 @@
+form {
+  display: flex;
+  flex-direction: column;
+  max-width: 560px;
+}
+
+.banner {
+  margin-bottom: 16px;
+  color: var(--mat-sys-error);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.hint-error {
+  color: var(--mat-sys-error);
+}

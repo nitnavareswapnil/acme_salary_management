@@ -1,8 +1,11 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { MatDialog } from '@angular/material/dialog';
 import { MatPaginator } from '@angular/material/paginator';
 import { By } from '@angular/platform-browser';
+import { provideRouter } from '@angular/router';
+import { of } from 'rxjs';
 import { vi } from 'vitest';
 import { Employee, PageResponse } from '../../core/models';
 import { EmployeeList } from './employee-list';
@@ -13,12 +16,14 @@ describe('EmployeeList', () => {
   let fixture: ComponentFixture<EmployeeList>;
   let component: EmployeeList;
   let http: HttpTestingController;
+  // Stands in for the confirmation dialog; each test decides what the user answered.
+  const dialog = { open: vi.fn() };
 
   beforeEach(async () => {
     vi.useFakeTimers();
     await TestBed.configureTestingModule({
       imports: [EmployeeList],
-      providers: [provideHttpClient(), provideHttpClientTesting()],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([]), { provide: MatDialog, useValue: dialog }],
     }).compileComponents();
     http = TestBed.inject(HttpTestingController);
     fixture = TestBed.createComponent(EmployeeList);
@@ -49,7 +54,9 @@ describe('EmployeeList', () => {
     listRequest().flush(page([employee()], 1));
     fixture.detectChanges();
 
-    const cells = Array.from(element().querySelectorAll('tbody tr td')).map((cell) => cell.textContent?.trim());
+    const cells = Array.from(element().querySelectorAll('tbody tr td'))
+      .map((cell) => cell.textContent?.trim())
+      .slice(0, 7);
     expect(cells).toEqual(['Asha Rao', 'asha@acme.com', 'Software Engineer', 'Engineering', 'India', '55,000.00', 'INR']);
   });
 
@@ -170,6 +177,89 @@ describe('EmployeeList', () => {
     expect(request.request.params.get('page')).toBe('0');
     request.flush(page([], 0));
   });
+
+  it('links to the add form and to each employee edit form', () => {
+    flushDepartments([]);
+    listRequest().flush(page([employee()], 1));
+    fixture.detectChanges();
+
+    expect(element().querySelector('a.add')?.getAttribute('href')).toBe('/employees/new');
+    expect(element().querySelector('tbody a.edit')?.getAttribute('href')).toBe('/employees/1/edit');
+  });
+
+  it('asks for confirmation naming the employee before deleting', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+    showOneEmployee();
+
+    deleteButton().click();
+
+    const config = dialog.open.mock.calls[0][1];
+    expect(config.data.message).toContain('Asha Rao');
+  });
+
+  it('deletes after confirmation and reloads the list', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(true) });
+    showOneEmployee();
+
+    deleteButton().click();
+
+    const remove = http.expectOne(`${API}/1`);
+    expect(remove.request.method).toBe('DELETE');
+    remove.flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+    listRequest().flush(page([], 0));
+  });
+
+  it('does nothing when the deletion is cancelled', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(false) });
+    showOneEmployee();
+
+    deleteButton().click();
+    fixture.detectChanges();
+
+    http.expectNone(`${API}/1`);
+    http.expectNone((r) => r.url === API);
+  });
+
+  it('shows an error when the deletion fails', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(true) });
+    showOneEmployee();
+
+    deleteButton().click();
+    http.expectOne(`${API}/1`).flush('boom', { status: 500, statusText: 'Server Error' });
+    fixture.detectChanges();
+
+    expect(element().querySelector('[role="alert"]')?.textContent).toContain('Could not delete');
+    // The row is still listed because nothing was removed.
+    expect(element().querySelectorAll('tbody tr').length).toBe(1);
+  });
+
+  it('steps back a page when the last row of a later page is deleted', () => {
+    dialog.open.mockReturnValue({ afterClosed: () => of(true) });
+    settle();
+    paginator().page.emit({ pageIndex: 2, pageSize: 20, length: 41 });
+    fixture.detectChanges();
+    listRequest().flush(page([employee()], 41));
+    fixture.detectChanges();
+
+    deleteButton().click();
+    http.expectOne(`${API}/1`).flush(null, { status: 204, statusText: 'No Content' });
+    fixture.detectChanges();
+
+    const reload = listRequest();
+    expect(reload.request.params.get('page')).toBe('1');
+    reload.flush(page([], 40));
+  });
+
+  function showOneEmployee() {
+    flushDepartments([]);
+    listRequest().flush(page([employee()], 1));
+    fixture.detectChanges();
+  }
+
+  function deleteButton(): HTMLButtonElement {
+    return element().querySelector('tbody button.delete') as HTMLButtonElement;
+  }
 
   // Answers the two requests made on start so a test can focus on what happens next.
   function settle() {

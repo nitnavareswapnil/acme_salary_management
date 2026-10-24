@@ -1,0 +1,71 @@
+<h1>{{ employeeId === null ? 'Add employee' : 'Edit employee' }}</h1>
+
+@if (loading()) {
+  <mat-progress-bar mode="indeterminate" />
+}
+
+@if (loadError(); as message) {
+  <div class="banner" role="alert">
+    {{ message }}
+    <a mat-button routerLink="/employees">Back to employees</a>
+  </div>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="save()">
+    @if (formError(); as message) {
+      <div class="banner" role="alert">{{ message }}</div>
+    }
+
+    <mat-form-field>
+      <mat-label>Name</mat-label>
+      <input matInput formControlName="name" />
+      <mat-error>{{ errorMessage('name') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Email</mat-label>
+      <input matInput type="email" formControlName="email" />
+      <mat-error>{{ errorMessage('email') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Department</mat-label>
+      <mat-select formControlName="department">
+        @for (name of departments(); track name) {
+          <mat-option [value]="name">{{ name }}</mat-option>
+        }
+      </mat-select>
+      @if (departmentsFailed()) {
+        <mat-hint class="hint-error">Departments could not be loaded. Reload the page to try again.</mat-hint>
+      }
+      <mat-error>{{ errorMessage('department') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Job title</mat-label>
+      <input matInput formControlName="jobTitle" />
+      <mat-error>{{ errorMessage('jobTitle') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Country</mat-label>
+      <mat-select formControlName="country">
+        @for (code of countries; track code) {
+          <mat-option [value]="code">{{ countryLabels[code] }}</mat-option>
+        }
+      </mat-select>
+      <mat-error>{{ errorMessage('country') }}</mat-error>
+    </mat-form-field>
+
+    <mat-form-field>
+      <mat-label>Base salary (annual, gross)</mat-label>
+      <input matInput type="number" step="0.01" formControlName="baseSalary" />
+      <mat-hint>In the currency of the selected country</mat-hint>
+      <mat-error>{{ errorMessage('baseSalary') }}</mat-error>
+    </mat-form-field>
+
+    <div class="actions">
+      <a mat-button routerLink="/employees">Cancel</a>
+      <button mat-flat-button type="submit" [disabled]="saving()">Save</button>
+    </div>
+  </form>
+}

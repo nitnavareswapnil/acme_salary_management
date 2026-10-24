@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { EmployeeService } from './employee.service';
-import { PageResponse, Employee } from './models';
+import { Employee, EmployeeRequest, PageResponse } from './models';
 
 describe('EmployeeService', () => {
   let service: EmployeeService;
@@ -68,6 +68,58 @@ describe('EmployeeService', () => {
 
     expect(result).toEqual(['Engineering', 'Sales']);
   });
+
+  it('loads one employee by id', () => {
+    let result: Employee | undefined;
+    service.get(5).subscribe((employee) => (result = employee));
+
+    const request = http.expectOne('http://localhost:8080/api/employees/5');
+    expect(request.request.method).toBe('GET');
+    request.flush(sampleEmployee());
+
+    expect(result?.name).toBe('Asha Rao');
+  });
+
+  it('creates an employee with POST', () => {
+    service.create(sampleRequest()).subscribe();
+
+    const request = http.expectOne('http://localhost:8080/api/employees');
+    expect(request.request.method).toBe('POST');
+    expect(request.request.body).toEqual(sampleRequest());
+    request.flush(sampleEmployee());
+  });
+
+  it('updates an employee with PUT', () => {
+    service.update(5, sampleRequest()).subscribe();
+
+    const request = http.expectOne('http://localhost:8080/api/employees/5');
+    expect(request.request.method).toBe('PUT');
+    expect(request.request.body).toEqual(sampleRequest());
+    request.flush(sampleEmployee());
+  });
+
+  it('deletes an employee with DELETE', () => {
+    service.delete(5).subscribe();
+
+    const request = http.expectOne('http://localhost:8080/api/employees/5');
+    expect(request.request.method).toBe('DELETE');
+    request.flush(null, { status: 204, statusText: 'No Content' });
+  });
+
+  function sampleRequest(): EmployeeRequest {
+    return {
+      name: 'Asha Rao',
+      email: 'asha@acme.com',
+      department: 'Engineering',
+      jobTitle: 'Software Engineer',
+      country: 'INDIA',
+      baseSalary: 55000,
+    };
+  }
+
+  function sampleEmployee(): Employee {
+    return { ...sampleRequest(), id: 5, currency: 'INR' };
+  }
 
   function emptyPage(): PageResponse<Employee> {
     return { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 };

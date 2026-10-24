@@ -18,6 +18,23 @@ export interface Employee {
   baseSalary: number;
 }
 
+// Body of POST/PUT /employees; the id and currency are assigned or derived by the backend.
+export interface EmployeeRequest {
+  name: string;
+  email: string;
+  department: string;
+  jobTitle: string;
+  country: Country;
+  baseSalary: number;
+}
+
+// The backend's single error body for every failure.
+export interface ApiError {
+  status: number;
+  message: string;
+  errors: { field: string; message: string }[];
+}
+
 export interface PageResponse<T> {
   content: T[];
   page: number;

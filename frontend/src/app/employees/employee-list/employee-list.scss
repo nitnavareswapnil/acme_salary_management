@@ -1,3 +1,9 @@
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -22,5 +28,10 @@ table {
 }
 
 .amount {
+  text-align: right;
+}
+
+.actions {
+  white-space: nowrap;
   text-align: right;
 }

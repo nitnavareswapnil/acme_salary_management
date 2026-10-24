@@ -1,3 +1,7 @@
+<div class="toolbar">
+  <a mat-flat-button class="add" routerLink="/employees/new">Add employee</a>
+</div>
+
 <div class="filters">
   <mat-form-field class="search">
     <mat-label>Search name or email</mat-label>
@@ -27,6 +31,10 @@
 
 @if (loading()) {
   <mat-progress-bar mode="indeterminate" />
+}
+
+@if (actionError(); as message) {
+  <div class="state error" role="alert">{{ message }}</div>
 }
 
 @if (failed()) {
@@ -65,6 +73,14 @@
     <ng-container matColumnDef="currency">
       <th mat-header-cell *matHeaderCellDef>Currency</th>
       <td mat-cell *matCellDef="let employee">{{ employee.currency }}</td>
+    </ng-container>
+
+    <ng-container matColumnDef="actions">
+      <th mat-header-cell *matHeaderCellDef></th>
+      <td mat-cell *matCellDef="let employee" class="actions">
+        <a mat-button class="edit" [routerLink]="['/employees', employee.id, 'edit']">Edit</a>
+        <button mat-button class="delete" (click)="confirmDelete(employee)">Delete</button>
+      </td>
     </ng-container>
 
     <tr mat-header-row *matHeaderRowDef="columns"></tr>
