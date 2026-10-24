@@ -1,0 +1,108 @@
+<h1>Salary insights</h1>
+
+<section class="stats">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Salary by country</mat-card-title>
+      <mat-card-subtitle>Annual gross base salary, in each country's own currency</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      @if (statsLoading()) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+
+      @if (statsFailed()) {
+        <div class="state error" role="alert">
+          Could not load salary statistics.
+          <button mat-button class="retry" (click)="loadStats()">Retry</button>
+        </div>
+      } @else if (!statsLoading() && stats().length === 0) {
+        <div class="state">No salary data yet</div>
+      } @else {
+        <table mat-table [dataSource]="stats()">
+          <ng-container matColumnDef="country">
+            <th mat-header-cell *matHeaderCellDef>Country</th>
+            <td mat-cell *matCellDef="let row">{{ countryLabel(row.country) }}</td>
+          </ng-container>
+          <ng-container matColumnDef="currency">
+            <th mat-header-cell *matHeaderCellDef>Currency</th>
+            <td mat-cell *matCellDef="let row">{{ row.currency }}</td>
+          </ng-container>
+          <ng-container matColumnDef="employeeCount">
+            <th mat-header-cell *matHeaderCellDef class="amount">Employees</th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
+          </ng-container>
+          <ng-container matColumnDef="minSalary">
+            <th mat-header-cell *matHeaderCellDef class="amount">Minimum</th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.minSalary | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="avgSalary">
+            <th mat-header-cell *matHeaderCellDef class="amount">Average</th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.avgSalary | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="maxSalary">
+            <th mat-header-cell *matHeaderCellDef class="amount">Maximum</th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.maxSalary | number: '1.2-2' }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="statsColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: statsColumns"></tr>
+        </table>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>
+
+<section class="titles">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Average salary by job title</mat-card-title>
+      <mat-card-subtitle>Pick a country to compare what each role is paid there</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-form-field>
+        <mat-label>Country</mat-label>
+        <mat-select [formControl]="country">
+          @for (code of countries; track code) {
+            <mat-option [value]="code">{{ countryLabel(code) }}</mat-option>
+          }
+        </mat-select>
+      </mat-form-field>
+
+      @if (titlesLoading()) {
+        <mat-progress-bar mode="indeterminate" />
+      }
+
+      @if (selectedCountry() === null) {
+        <div class="state">Choose a country to see average salary by job title</div>
+      } @else if (titlesFailed()) {
+        <div class="state error" role="alert">
+          Could not load job title averages.
+          <button mat-button class="retry" (click)="retryTitles()">Retry</button>
+        </div>
+      } @else if (!titlesLoading() && titles().length === 0) {
+        <div class="state">No employees in {{ countryLabel(selectedCountry()!) }}</div>
+      } @else {
+        <table mat-table [dataSource]="titles()">
+          <ng-container matColumnDef="jobTitle">
+            <th mat-header-cell *matHeaderCellDef>Job title</th>
+            <td mat-cell *matCellDef="let row">{{ row.jobTitle }}</td>
+          </ng-container>
+          <ng-container matColumnDef="avgSalary">
+            <th mat-header-cell *matHeaderCellDef class="amount">
+              Average salary{{ currency() ? ' (' + currency() + ')' : '' }}
+            </th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.avgSalary | number: '1.2-2' }}</td>
+          </ng-container>
+          <ng-container matColumnDef="employeeCount">
+            <th mat-header-cell *matHeaderCellDef class="amount">Employees</th>
+            <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="titleColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: titleColumns"></tr>
+        </table>
+      }
+    </mat-card-content>
+  </mat-card>
+</section>
