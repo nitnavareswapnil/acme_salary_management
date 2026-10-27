@@ -74,3 +74,9 @@ export interface DepartmentAverage {
   avgSalary: number;
   employeeCount: number;
 }
+
+// One country's average for a job title, or null when nobody in that country holds the role.
+export interface JobTitleComparison {
+  country: Country;
+  average: JobTitleAverage | null;
+}

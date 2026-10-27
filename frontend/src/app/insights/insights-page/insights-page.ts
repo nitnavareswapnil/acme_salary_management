@@ -10,7 +10,15 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { catchError, filter, Observable, of, Subject, switchMap, tap } from 'rxjs';
 import { InsightsService } from '../../core/insights.service';
-import { COUNTRY_LABELS, Country, CountrySalaryStats, DepartmentAverage, JobTitleAverage } from '../../core/models';
+import { EmployeeService } from '../../core/employee.service';
+import {
+  COUNTRY_LABELS,
+  Country,
+  CountrySalaryStats,
+  DepartmentAverage,
+  JobTitleAverage,
+  JobTitleComparison,
+} from '../../core/models';
 import { ChartCanvas } from '../../shared/chart/chart-canvas';
 import { barConfig, COUNTRY_COLORS, donutConfig } from '../../shared/chart/chart-config';
 
@@ -38,6 +46,7 @@ const formatSalary = (value: number) => value.toLocaleString('en-US', { maximumF
 })
 export class InsightsPage {
   private readonly insightsService = inject(InsightsService);
+  private readonly employeeService = inject(EmployeeService);
 
   protected readonly statsColumns = ['country', 'currency', 'employeeCount', 'minSalary', 'avgSalary', 'maxSalary'];
   protected readonly titleColumns = ['jobTitle', 'avgSalary', 'employeeCount'];
@@ -56,6 +65,15 @@ export class InsightsPage {
   protected readonly titles = signal<JobTitleAverage[]>([]);
   protected readonly titlesLoading = signal(false);
   protected readonly titlesFailed = signal(false);
+
+  // The comparison has its own selector (a job title), so it does not depend on the country chosen above.
+  readonly jobTitle = new FormControl<string | null>(null);
+  protected readonly selectedTitle = toSignal(this.jobTitle.valueChanges, { initialValue: null });
+  protected readonly jobTitleOptions = signal<string[]>([]);
+  protected readonly jobTitleOptionsFailed = signal(false);
+  protected readonly comparison = signal<JobTitleComparison[]>([]);
+  protected readonly comparisonLoading = signal(false);
+  protected readonly comparisonFailed = signal(false);
 
   protected readonly departments = signal<DepartmentAverage[]>([]);
   protected readonly departmentsLoading = signal(false);
@@ -88,6 +106,7 @@ export class InsightsPage {
   // Both a new selection and Retry push a country here; switchMap drops an older request still in flight.
   private readonly titleRequests = new Subject<Country>();
   private readonly departmentRequests = new Subject<Country>();
+  private readonly comparisonRequests = new Subject<string>();
 
   constructor() {
     this.loadStats();
@@ -99,6 +118,17 @@ export class InsightsPage {
         this.departmentRequests.next(country);
       });
 
+    this.employeeService
+      .jobTitles()
+      .pipe(takeUntilDestroyed())
+      .subscribe({
+        next: (titles) => this.jobTitleOptions.set(titles),
+        error: () => this.jobTitleOptionsFailed.set(true),
+      });
+    this.jobTitle.valueChanges
+      .pipe(filter((title): title is string => title !== null), takeUntilDestroyed())
+      .subscribe((title) => this.comparisonRequests.next(title));
+
     // The two cards load, fail and retry independently, so one failing never hides the other.
     this.load(this.titleRequests, (country) => this.insightsService.jobTitleAverages(country), {
       data: this.titles,
@@ -109,6 +139,11 @@ export class InsightsPage {
       data: this.departments,
       loading: this.departmentsLoading,
       failed: this.departmentsFailed,
+    });
+    this.load(this.comparisonRequests, (title) => this.insightsService.compareJobTitle(title), {
+      data: this.comparison,
+      loading: this.comparisonLoading,
+      failed: this.comparisonFailed,
     });
   }
 
@@ -141,13 +176,33 @@ export class InsightsPage {
     }
   }
 
+  protected retryComparison(): void {
+    const title = this.selectedTitle();
+    if (title !== null) {
+      this.comparisonRequests.next(title);
+    }
+  }
+
+  protected currencyOf(country: Country): string {
+    return this.stats().find((row) => row.country === country)?.currency ?? '';
+  }
+
+  // Shown with the ISO code ("INR 1,288,747.05") rather than a symbol, because "$" alone is ambiguous across
+  // countries. Without a known currency (statistics failed) only the number is shown.
+  protected formatMoney(amount: number, country: Country): string {
+    const currency = this.currencyOf(country);
+    return currency
+      ? new Intl.NumberFormat('en-US', { style: 'currency', currency, currencyDisplay: 'code' }).format(amount)
+      : amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
   protected countryLabel(country: Country): string {
     return COUNTRY_LABELS[country];
   }
 
-  private load<T>(
-    requests: Subject<Country>,
-    fetch: (country: Country) => Observable<T[]>,
+  private load<K, T>(
+    requests: Subject<K>,
+    fetch: (key: K) => Observable<T[]>,
     state: { data: WritableSignal<T[]>; loading: WritableSignal<boolean>; failed: WritableSignal<boolean> },
   ): void {
     requests
@@ -156,8 +211,8 @@ export class InsightsPage {
           state.loading.set(true);
           state.failed.set(false);
         }),
-        switchMap((country) =>
-          fetch(country).pipe(
+        switchMap((key) =>
+          fetch(key).pipe(
             catchError(() => {
               state.failed.set(true);
               return of(null);

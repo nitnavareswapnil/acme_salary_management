@@ -85,3 +85,50 @@ table {
   margin-right: 8px;
   border-radius: 3px;
 }
+
+.note {
+  margin: 0 0 8px;
+  color: var(--mat-sys-on-surface-variant);
+}
+
+.hint-error {
+  color: var(--mat-sys-error);
+}
+
+// Country order, never ranked by amount: the figures are in different currencies.
+.comparison-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin-top: 8px;
+}
+
+.comparison-card {
+  padding: 16px;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+
+  .country {
+    display: inline;
+    margin: 0 8px 0 0;
+    font: var(--mat-sys-title-medium);
+    font-weight: 600;
+  }
+
+  .currency {
+    color: var(--mat-sys-on-surface-variant);
+  }
+
+  // The page-wide .amount rule right-aligns table cells; a card reads left to right.
+  .amount {
+    text-align: left;
+    margin: 8px 0 4px;
+    font: var(--mat-sys-headline-small);
+    font-weight: 600;
+  }
+
+  .count,
+  .none {
+    color: var(--mat-sys-on-surface-variant);
+  }
+}

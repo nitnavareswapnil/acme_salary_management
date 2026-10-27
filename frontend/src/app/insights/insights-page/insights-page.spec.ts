@@ -2,12 +2,13 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting, TestRequest } from '@angular/common/http/testing';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ChartConfiguration } from 'chart.js';
-import { CountrySalaryStats, DepartmentAverage, JobTitleAverage } from '../../core/models';
+import { Country, CountrySalaryStats, DepartmentAverage, JobTitleAverage } from '../../core/models';
 import { CHART_FACTORY } from '../../shared/chart/chart-canvas';
 import { COUNTRY_COLORS } from '../../shared/chart/chart-config';
 import { InsightsPage } from './insights-page';
 
 const API = 'http://localhost:8080/api/insights/countries';
+const TITLE_OPTIONS_URL = 'http://localhost:8080/api/employees/job-titles';
 
 describe('InsightsPage', () => {
   let fixture: ComponentFixture<InsightsPage>;
@@ -38,11 +39,12 @@ describe('InsightsPage', () => {
     fixture.detectChanges();
   });
 
-  // Choosing a country also requests its department averages. Those have their own describe below; in the
-  // older tests they are simply answered here so verify() only reports requests nobody expected.
+  // Choosing a country also requests its department averages, and the page asks for the job title options when
+  // it opens. Those have their own describes; in the older tests they are simply answered here so verify() only
+  // reports requests nobody expected.
   afterEach(() => {
     http
-      .match((request) => request.url.endsWith('/departments'))
+      .match((request) => request.url.endsWith('/departments') || request.url === TITLE_OPTIONS_URL)
       .filter((request) => !request.cancelled)
       .forEach((request) => request.flush([]));
     http.verify();
@@ -116,7 +118,7 @@ describe('InsightsPage', () => {
 
     it('asks the user to choose a country and requests nothing yet', () => {
       expect(titlesSection().textContent).toContain('Choose a country');
-      http.expectNone((r) => r.url.includes('/job-titles'));
+      http.expectNone((r) => r.url.startsWith(API) && r.url.endsWith('/job-titles'));
     });
 
     it('offers every supported country', () => {
@@ -194,7 +196,7 @@ describe('InsightsPage', () => {
       fixture.detectChanges();
     });
 
-    const sections = () => [statsSection, titlesSection, departmentsSection];
+    const sections = () => [statsSection, titlesSection, departmentsSection, comparisonSection];
 
     it('starts with every section expanded', () => {
       for (const section of sections()) {
@@ -260,6 +262,171 @@ describe('InsightsPage', () => {
 
       expect(select).not.toBeNull();
       expect(select.closest('mat-expansion-panel')).toBeNull();
+    });
+  });
+
+  describe('job title comparison across countries', () => {
+    const OPTIONS = ['Accountant', 'Software Engineer', 'Support Agent'];
+
+    beforeEach(() => {
+      statsRequest().flush([stats('US', 'USD', 3274), stats('INDIA', 'INR'), stats('UK', 'GBP', 3377)]);
+      http.expectOne(TITLE_OPTIONS_URL).flush(OPTIONS);
+      fixture.detectChanges();
+    });
+
+    // Answers the three per-country requests a comparison makes. Requests cancelled by a newer choice stay in
+    // the controller's list, so only the live one per country is answered.
+    function answer(rows: Partial<Record<Country, JobTitleAverage[]>>) {
+      for (const country of ['US', 'INDIA', 'UK'] as const) {
+        const live = http.match(`${API}/${country}/job-titles`).filter((request) => !request.cancelled);
+        expect(live).toHaveLength(1);
+        live[0].flush(rows[country] ?? []);
+      }
+      fixture.detectChanges();
+    }
+
+    function cards(): HTMLElement[] {
+      return Array.from(comparisonSection().querySelectorAll('.comparison-card'));
+    }
+
+    const text = (element: Element | null) => element?.textContent?.replace(/\s+/g, ' ').trim();
+
+    it('offers the job titles known to the backend', () => {
+      (comparisonSection().querySelector('mat-select .mat-mdc-select-trigger') as HTMLElement).click();
+      fixture.detectChanges();
+
+      expect(options()).toEqual(OPTIONS);
+    });
+
+    it('asks the user to choose a job title and requests nothing yet', () => {
+      expect(comparisonSection().textContent).toContain('Choose a job title to compare');
+      http.expectNone((r) => r.url.startsWith(API));
+    });
+
+    it('requests every country once a title is chosen and shows a loading bar meanwhile', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+
+      expect(comparisonSection().querySelector('mat-progress-bar')).not.toBeNull();
+      answer({});
+      expect(comparisonSection().querySelector('mat-progress-bar')).toBeNull();
+    });
+
+    it('shows one card per country, side by side, each in its own currency', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      answer({
+        US: [title('Accountant', 76000, 40)],
+        INDIA: [title('Accountant', 1022734.78, 138)],
+        UK: [title('Accountant', 45000.5, 30)],
+      });
+
+      expect(cards().map((card) => text(card.querySelector('.country')))).toEqual([
+        'United States',
+        'India',
+        'United Kingdom',
+      ]);
+      expect(cards().map((card) => text(card.querySelector('.currency')))).toEqual(['USD', 'INR', 'GBP']);
+      expect(cards().map((card) => text(card.querySelector('.amount')))).toEqual([
+        'USD 76,000.00',
+        'INR 1,022,734.78',
+        'GBP 45,000.50',
+      ]);
+      expect(cards().map((card) => text(card.querySelector('.count')))).toEqual([
+        '40 employees',
+        '138 employees',
+        '30 employees',
+      ]);
+    });
+
+    it('says plainly that the amounts are not converted', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      answer({ US: [title('Accountant', 76000, 40)] });
+
+      expect(comparisonSection().querySelector('.note')?.textContent).toContain('not converted');
+    });
+
+    it('keeps the cards in country order rather than ranking by amount', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      answer({
+        US: [title('Accountant', 1, 1)],
+        INDIA: [title('Accountant', 999999999, 1)],
+        UK: [title('Accountant', 5, 1)],
+      });
+
+      expect(cards().map((card) => text(card.querySelector('.country')))).toEqual([
+        'United States',
+        'India',
+        'United Kingdom',
+      ]);
+    });
+
+    it('marks a country with nobody in that role instead of hiding it', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      answer({ US: [title('Accountant', 76000, 40)], INDIA: [title('Recruiter', 500000, 9)] });
+
+      expect(cards()).toHaveLength(3);
+      expect(text(cards()[1])).toContain('India');
+      expect(text(cards()[1])).toContain('No employees in this role');
+      expect(cards()[1].querySelector('.amount')).toBeNull();
+    });
+
+    it('switches to another title and ignores the answers still pending for the previous one', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      const first = titlesRequest('US');
+
+      component.jobTitle.setValue('Support Agent');
+      fixture.detectChanges();
+      answer({ US: [title('Support Agent', 40000, 5)] });
+
+      expect(first.cancelled).toBe(true);
+      expect(text(cards()[0].querySelector('.amount'))).toBe('USD 40,000.00');
+    });
+
+    it('shows an error with a retry that asks every country again', () => {
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      titlesRequest('US').flush('boom', { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(comparisonSection().textContent).toContain('Could not compare this job title');
+      expect(cards()).toHaveLength(0);
+
+      (comparisonSection().querySelector('button.retry') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      answer({ US: [title('Accountant', 76000, 40)] });
+
+      expect(comparisonSection().textContent).not.toContain('Could not compare');
+      expect(cards()).toHaveLength(3);
+    });
+  });
+
+  describe('job title comparison when its inputs fail', () => {
+    it('explains that the job titles could not be loaded', () => {
+      statsRequest().flush([stats('US', 'USD')]);
+      http.expectOne(TITLE_OPTIONS_URL).flush('boom', { status: 500, statusText: 'Server Error' });
+      fixture.detectChanges();
+
+      expect(comparisonSection().textContent).toContain('Job titles could not be loaded');
+    });
+
+    it('still shows the amounts, just without currency codes, when the statistics failed', () => {
+      statsRequest().flush('boom', { status: 500, statusText: 'Server Error' });
+      http.expectOne(TITLE_OPTIONS_URL).flush(['Accountant']);
+      component.jobTitle.setValue('Accountant');
+      fixture.detectChanges();
+      for (const country of ['US', 'INDIA', 'UK']) {
+        titlesRequest(country).flush(country === 'US' ? [title('Accountant', 76000, 40)] : []);
+      }
+      fixture.detectChanges();
+
+      const amount = comparisonSection().querySelector('.comparison-card .amount');
+      expect(amount?.textContent?.trim()).toBe('76,000.00');
+      expect(comparisonSection().querySelector('.comparison-card .currency')?.textContent?.trim()).toBe('');
     });
   });
 
@@ -490,6 +657,10 @@ describe('InsightsPage', () => {
 
   function titlesRequest(country: string): TestRequest {
     return http.expectOne(`${API}/${country}/job-titles`);
+  }
+
+  function comparisonSection(): HTMLElement {
+    return element().querySelector('section.comparison') as HTMLElement;
   }
 
   function departmentsRequest(country: string): TestRequest {
