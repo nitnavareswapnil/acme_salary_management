@@ -174,6 +174,14 @@ describe('EmployeeList', () => {
     });
   });
 
+  it('shows the empty and error states inside the grid container too', () => {
+    flushDepartments([]);
+    listRequest().flush(page([], 0));
+    fixture.detectChanges();
+
+    expect(element().querySelector('.grid .state')?.textContent).toContain('No employees found');
+  });
+
   it('shows an empty state when nothing matches', () => {
     flushDepartments([]);
     listRequest().flush(page([], 0));
@@ -406,6 +414,33 @@ describe('EmployeeList', () => {
 
       expect(headerBox().indeterminate).toBe(true);
       expect(headerBox().checked).toBe(false);
+    });
+
+    it('highlights the rows that are ticked and only those', () => {
+      rowBoxes()[0].click();
+      rowBoxes()[2].click();
+      fixture.detectChanges();
+
+      const rows = Array.from(element().querySelectorAll('tbody tr'));
+      expect(rows.map((row) => row.classList.contains('selected'))).toEqual([true, false, true]);
+
+      rowBoxes()[0].click();
+      fixture.detectChanges();
+      expect(element().querySelectorAll('tbody tr.selected')).toHaveLength(1);
+    });
+
+    it('highlights every row when all are selected from the header', () => {
+      headerBox().click();
+      fixture.detectChanges();
+
+      expect(element().querySelectorAll('tbody tr.selected')).toHaveLength(3);
+    });
+
+    it('keeps the table and its paginator together in one grid container', () => {
+      const grid = element().querySelector('.grid') as HTMLElement;
+
+      expect(grid.querySelector('table')).not.toBeNull();
+      expect(grid.querySelector('mat-paginator')).not.toBeNull();
     });
 
     it('labels each checkbox with the employee it selects', () => {

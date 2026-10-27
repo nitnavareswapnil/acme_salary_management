@@ -62,8 +62,61 @@
   color: var(--mat-sys-error);
 }
 
+// Table and paginator share one outlined, rounded surface; the page behind is a faint grey.
+.grid {
+  overflow-x: auto;
+  border: 1px solid var(--mat-sys-outline-variant);
+  border-radius: 12px;
+  background: var(--mat-sys-surface);
+}
+
 table {
   width: 100%;
+  background: transparent;
+}
+
+// Light shades of the theme's primary colour: a tinted header, a faint stripe on every second row, a
+// slightly stronger shade under the pointer and the strongest for ticked rows.
+th.mat-mdc-header-cell {
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font-weight: 600;
+}
+
+tr.mat-mdc-row:nth-child(even) {
+  background: color-mix(in srgb, var(--mat-sys-primary-container) 22%, transparent);
+}
+
+tr.mat-mdc-row:hover {
+  background: color-mix(in srgb, var(--mat-sys-primary-container) 50%, transparent);
+}
+
+// An accent bar on the left edge makes a ticked row clear even next to a striped or hovered one.
+tr.mat-mdc-row.selected {
+  background: color-mix(in srgb, var(--mat-sys-primary-container) 80%, transparent);
+  box-shadow: inset 4px 0 0 var(--mat-sys-primary);
+}
+
+.name {
+  font-weight: 500;
+}
+
+.muted {
+  color: var(--mat-sys-on-surface-variant);
+}
+
+// Digits line up in the salary column.
+td.amount {
+  font-variant-numeric: tabular-nums;
+}
+
+button.delete {
+  --mat-button-text-label-text-color: var(--mat-sys-error);
+}
+
+mat-paginator {
+  background: transparent;
+  border-top: 1px solid var(--mat-sys-outline-variant);
 }
 
 .amount {
