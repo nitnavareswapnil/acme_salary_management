@@ -1,0 +1,10 @@
+# Build settings for Netlify, kept in the repo so the dashboard needs no manual entries.
+# The headers and the client-side routing rewrite live in frontend/public/_headers and _redirects.
+[build]
+  base = "frontend"
+  command = "npm ci && npm run build"
+  publish = "dist/frontend/browser"
+
+[build.environment]
+  # Angular 21 needs Node 20.19+, 22.12+ or 24+; pinning avoids depending on Netlify's default.
+  NODE_VERSION = "22"

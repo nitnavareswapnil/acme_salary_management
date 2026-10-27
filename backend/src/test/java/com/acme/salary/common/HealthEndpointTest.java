@@ -33,6 +33,16 @@ class HealthEndpointTest {
 				.andExpect(jsonPath("$.status").value("UP"));
 	}
 
+	// The host's health check calls this path all day. It must not query the database, or a serverless database
+	// (Neon scales to zero after 5 idle minutes) would never get to sleep and would burn its free compute hours.
+	@Test
+	void livenessProbeAnswersWithoutTouchingTheDatabase() throws Exception {
+		mockMvc.perform(get("/actuator/health/liveness"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.status").value("UP"))
+				.andExpect(jsonPath("$.components.db").doesNotExist());
+	}
+
 	// Only health is exposed; env, beans and the rest would leak configuration.
 	@Test
 	void doesNotExposeOtherActuatorEndpoints() throws Exception {

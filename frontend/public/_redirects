@@ -1,0 +1,3 @@
+# Client-side routing: any path that is not a real file serves the app, which then routes it (so a reload or a
+# shared link to /insights works instead of returning 404). Real files, such as the scripts, are served as they are.
+/*    /index.html   200
