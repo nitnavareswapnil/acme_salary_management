@@ -6,7 +6,8 @@
 Same repo, two independently deployed parts:
 - Backend: Docker image on Render (free web service).
 - Database: Neon PostgreSQL (free tier).
-- Frontend: static Angular build on Netlify or Vercel.
+- Frontend: static Angular build on Vercel (Hobby). Netlify was the first choice but its account was suspended on sign-up,
+  so the routing rewrite and security headers moved from `_redirects`/`_headers` to `frontend/vercel.json`.
 Configuration through environment variables (DB URL, allowed CORS origin, API base URL); no secrets in the repo.
 
 ## Alternatives considered

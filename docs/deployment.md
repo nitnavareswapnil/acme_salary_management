@@ -1,13 +1,17 @@
 # Deployment guide
 
-The app is three free-tier pieces. The browser loads the static frontend from Netlify; the frontend calls the
+The app is three free-tier pieces. The browser loads the static frontend from Vercel; the frontend calls the
 Spring Boot API on Render; the API stores data in Neon (PostgreSQL).
 
 ```
-Browser --> Netlify (Angular, static) --> Render (Docker, Spring Boot) --> Neon (PostgreSQL)
+Browser --> Vercel (Angular, static) --> Render (Docker, Spring Boot) --> Neon (PostgreSQL)
 ```
 
-Do the steps in this order: **Neon, Render, Netlify, then go back to Render** to tell it the Netlify address.
+Do the steps in this order: **Neon, Render, Vercel, then go back to Render** to tell it the Vercel address.
+
+**Why Vercel and not Netlify:** the frontend was planned for Netlify, but Netlify suspended the new account at
+sign-up (a support request is open). The app is a plain static build, so any static host works; Vercel's Hobby plan
+is free, needs no card, and reads the same kind of settings from a file in the repo (`frontend/vercel.json`).
 
 Free-tier figures below were read from the providers' own pages on **2026-10-27** (sources at the end). They change,
 so check the pages again before relying on a number.
@@ -20,8 +24,7 @@ so check the pages again before relying on a number.
 | `backend/src/main/resources/application.properties` | Reads `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `CORS_ALLOWED_ORIGINS` and `PORT` from the environment |
 | `SecurityHeadersFilter`, `RequestLoggingFilter` | Security headers on every response; one log line per request without query strings or bodies |
 | `frontend/src/environments/environment.ts` | Production `apiBaseUrl` (the development file replaces it for `ng serve`) |
-| `frontend/public/_redirects`, `_headers` | Client-side routing rewrite and browser security headers, copied to the site root by the build |
-| `netlify.toml` | Base directory, build command, publish directory and Node version for Netlify |
+| `frontend/vercel.json` | Client-side routing rewrite (`/(.*)` to `/index.html`; real files win), browser security headers, install command and output directory for Vercel |
 
 No secret is committed; credentials exist only as environment variables on the hosts.
 
@@ -75,7 +78,7 @@ You do not create tables or load data by hand: on first start the app runs the F
    | `DB_URL` | from step 1 |
    | `DB_USERNAME` | from step 1 |
    | `DB_PASSWORD` | from step 1 |
-   | `CORS_ALLOWED_ORIGINS` | `https://acme-salary.netlify.app` for now; fixed in step 4 |
+   | `CORS_ALLOWED_ORIGINS` | `https://acme-salary.vercel.app` for now; fixed in step 3 |
 
    Do not set `PORT`; Render sets it and the app listens on it.
 4. **Create Web Service.** The first build takes several minutes. When the log shows `Started SalaryApplication`,
@@ -87,33 +90,38 @@ few seconds, which would keep Neon awake around the clock and use up its free co
 `/actuator/health/liveness` answers without touching the database.
 
 **If the name is taken**, Render adds a suffix to the address. Change the new address in two places and push:
-`frontend/src/environments/environment.ts` and `connect-src` in `frontend/public/_headers`. `CORS_ALLOWED_ORIGINS`
+`frontend/src/environments/environment.ts` and `connect-src` in `frontend/vercel.json`. `CORS_ALLOWED_ORIGINS`
 names the frontend, not the API, so it does not change.
 
-## 3. Netlify: the frontend
+## 3. Vercel: the frontend
 
-1. Sign up at netlify.com with GitHub. **Add new site, Import an existing project**, pick the repository.
-2. The settings come from `netlify.toml`, so the form should already show these (fill them in if it does not):
+1. Sign up at vercel.com with GitHub, choosing the **Hobby** plan (free, personal and non-commercial use only).
+   Do not add a card.
+2. **Add New, Project**, import the repository, then set:
 
    | Setting | Value |
    |---|---|
-   | Base directory | `frontend` |
-   | Build command | `npm ci && npm run build` |
-   | Publish directory | `frontend/dist/frontend/browser` |
-   | Environment variable | `NODE_VERSION` = `22` |
+   | Project Name | `acme-salary` (any free name; it becomes `https://<name>.vercel.app`) |
+   | Framework Preset | Angular (detected) |
+   | Root Directory | `frontend` (click Edit and pick the folder) |
+   | Build Command | leave the default (`npm run build`) |
+   | Output Directory, Install Command | taken from `vercel.json`; leave as shown |
 
-3. Before deploying, open **Site configuration, Change site name** and use `acme-salary` if it is free, so the address
-   is `https://acme-salary.netlify.app`. Any other name works; use it in step 4.
-4. **Deploy.** When it finishes, open the site: the employee list should load.
+3. Before deploying, open **Settings, Build and Deployment, Node.js Version** (it can also be set later and
+   redeployed) and choose **22.x**. Angular 21 needs Node 20.19+, 22.12+ or 24+.
+4. **Deploy.** When it finishes, open the address Vercel shows: the employee list should load. If the name was taken,
+   Vercel gives a different address; use the one it shows in the next step.
 
-`_redirects` makes every path serve the app, so a reload on `/insights` or a shared link works. `_headers` adds the
-browser security headers and long caching for the hashed script and style files.
+`vercel.json` makes every path serve the app (a reload on `/insights` or a shared link works; real files such as the
+scripts are served as they are, because Vercel checks files before applying rewrites) and adds the browser security
+headers. Vercel serves static files with its own caching, so no cache headers are set here.
 
-### Back to Render: allow the Netlify address
+### Back to Render: allow the Vercel address
 
-Set `CORS_ALLOWED_ORIGINS` on the Render service to the exact address of the Netlify site: scheme included, no
-trailing slash, for example `https://acme-salary.netlify.app`. Save; Render restarts the service. Several origins can
-be given separated by commas.
+Set `CORS_ALLOWED_ORIGINS` on the Render service to the exact address of the Vercel site: scheme included, no
+trailing slash, for example `https://acme-salary.vercel.app`. Save; Render restarts the service. Several origins can
+be given separated by commas. Vercel also creates preview addresses for other branches; they are not allowed unless
+you list them, which is the intent.
 
 ## 4. Check that it all works
 
@@ -121,31 +129,30 @@ be given separated by commas.
 |---|---|
 | `curl -s https://acme-salary-api.onrender.com/actuator/health` | `{"status":"UP"}` |
 | `curl -si "https://acme-salary-api.onrender.com/api/employees?size=1"` | `200` with `X-Content-Type-Options`, `Cache-Control: no-store` and `Content-Security-Policy` headers |
-| Preflight from the site: `curl -si -X OPTIONS https://acme-salary-api.onrender.com/api/employees -H "Origin: https://acme-salary.netlify.app" -H "Access-Control-Request-Method: GET"` | `200` and `Access-Control-Allow-Origin: https://acme-salary.netlify.app` |
+| Preflight from the site: `curl -si -X OPTIONS https://acme-salary-api.onrender.com/api/employees -H "Origin: https://acme-salary.vercel.app" -H "Access-Control-Request-Method: GET"` | `200` and `Access-Control-Allow-Origin: https://acme-salary.vercel.app` |
 | Same preflight with `-H "Origin: https://evil.example"` | `403` |
-| Netlify site: Employees page | 10,000 employees, filters, paging |
-| Netlify site: Insights page | charts and the three tables |
+| Vercel site: Employees page | 10,000 employees, filters, paging |
+| Vercel site: Insights page | charts and the three tables |
 | Reload on `/insights` | the page, not a 404 |
 | Browser console on both pages | no red errors |
 
 | Symptom | Likely cause |
 |---|---|
 | Page loads but the list shows "Could not load employees" and the console says CORS | `CORS_ALLOWED_ORIGINS` on Render does not exactly equal the site address |
-| Console says a request was blocked by Content Security Policy | the API address in `environment.ts` and in `connect-src` of `_headers` differ |
+| Console says a request was blocked by Content Security Policy | the API address in `environment.ts` and in `connect-src` of `frontend/vercel.json` differ |
 | Render deploy fails at start with a connection or SSL error | wrong `DB_URL`, or `sslmode=require` missing, or `channel_binding` left in |
 | First request after a quiet period hangs for a minute | the free API instance was asleep; see below |
 
 ## Free-tier limits and sleep behaviour
 
-| | Render, free web service | Neon, free plan | Netlify, free plan |
+| | Render, free web service | Neon, free plan | Vercel, Hobby plan |
 |---|---|---|---|
-| Compute or build allowance | 750 free instance hours per month per workspace; services are suspended when they run out until next month | 100 compute-hours (CU-hours) per project per month (0.25 CU for 400 hours) | 300 credits per month, a hard limit |
+| Compute or build allowance | 750 free instance hours per month per workspace; services are suspended when they run out until next month. 500 pipeline (build) minutes a month | 100 compute-hours (CU-hours) per project per month (0.25 CU for 400 hours) | 100 deployments per day |
 | Sleeps when idle? | Yes: after 15 minutes without inbound requests; waking takes about a minute and browsers see a loading page | Yes: compute suspends after 5 minutes idle and cannot be switched off; waking takes "a few hundred milliseconds" | No: static files are served always |
 | Storage | Ephemeral filesystem, no persistent disk (the data is in Neon, so this does not matter) | 1 GB per project | n/a |
-| Transfer | not stated on the page | 5 GB public transfer per project per month | bandwidth costs 20 credits per GB |
-| What a deploy or request costs | n/a | n/a | 15 credits per production deploy; 2 credits per 10,000 requests; failed deploys and rollbacks are free |
-| When the allowance is gone | web services are suspended until next month | compute suspended until next month; stored data is not deleted | all sites paused ("Site not available") until credits renew; more credits cannot be bought on Free |
-| Other | one instance, no SSH, no edge caching, ports 25, 465 and 587 blocked | 10 branches per project | credits are shared by deploys, bandwidth and requests |
+| Transfer | 5 GB outbound a month | 5 GB public transfer per project per month | 100 GB Fast Data Transfer and 1,000,000 CDN requests a month |
+| When the allowance is gone | web services are suspended until next month; with a card on file, bandwidth is billed instead | compute suspended until next month; stored data is not deleted | the feature is blocked until 30 days have passed; no bill on Hobby |
+| Other | one instance, no SSH, no edge caching, ports 25, 465 and 587 blocked | 10 branches per project | non-commercial use only; a commercial use can get the account paused |
 
 Render also offers a free PostgreSQL, but it expires 30 days after creation, which is why the database is on Neon.
 
@@ -157,8 +164,11 @@ Render also offers a free PostgreSQL, but it expires 30 days after creation, whi
   so Neon would never sleep: 24 hours a day on 0.25 CU is about 6 compute-hours a day, so the 100 CU-hours last about
   17 days. A ping to `/actuator/health/liveness` keeps only Render awake: an always-on instance needs about 744 of the
   750 monthly hours, which just fits.
-- **Netlify credits go mostly on deploys.** Each push to `main` that deploys costs 15 credits, so 300 credits is
-  about 20 production deploys a month, and traffic is cheap by comparison.
+- **Vercel has a lot of room for a static site.** The bundle is under 1 MB, so 100 GB of transfer is far more than
+  this project will use, and 100 deployments a day cannot be reached by hand. Keep the account on Hobby with no card,
+  so nothing can be billed.
+- **No card anywhere.** Without one, Render, Neon and Vercel stop a service when its allowance runs out instead of
+  charging for it.
 - **The seed runs once.** If the Neon database is ever emptied, the next Render start seeds it again.
 
 ## Sources (read 2026-10-27)
@@ -169,4 +179,8 @@ Render also offers a free PostgreSQL, but it expires 30 days after creation, whi
 - Neon plans: https://neon.com/docs/introduction/plans
 - Neon scale to zero: https://neon.com/docs/introduction/scale-to-zero
 - Neon connection strings: https://neon.com/docs/connect/connect-from-any-app
-- Netlify credits: https://docs.netlify.com/manage/accounts-and-billing/billing/billing-for-credit-based-plans/how-credits-work/
+- Vercel Hobby plan: https://vercel.com/docs/plans/hobby
+- Vercel project configuration: https://vercel.com/docs/project-configuration/vercel-json
+- Vercel paused accounts: https://vercel.com/kb/guide/why-is-my-account-deployment-blocked
+- Render build pipeline minutes: https://render.com/docs/build-pipeline
+- Render outbound bandwidth: https://render.com/docs/outbound-bandwidth
