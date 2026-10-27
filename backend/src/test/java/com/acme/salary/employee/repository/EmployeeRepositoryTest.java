@@ -1,6 +1,7 @@
 package com.acme.salary.employee.repository;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.dto.DepartmentAggregate;
 import com.acme.salary.employee.dto.JobTitleAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
@@ -92,7 +93,7 @@ class EmployeeRepositoryTest {
 	void searchWithoutFiltersReturnsEveryone() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%", null, null, PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%", null, null, null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getTotalElements()).isEqualTo(5);
 	}
@@ -101,7 +102,7 @@ class EmployeeRepositoryTest {
 	void searchMatchesNameCaseInsensitively() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%asha%", null, null, PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%asha%", null, null, null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).extracting(Employee::getEmail)
 				.containsExactlyInAnyOrder("asha@acme.com", "asha.rao2@acme.com");
@@ -111,7 +112,7 @@ class EmployeeRepositoryTest {
 	void searchMatchesEmail() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%ben@acme%", null, null, PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%ben@acme%", null, null, null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).extracting(Employee::getName).containsExactly("Ben Carter");
 	}
@@ -120,7 +121,7 @@ class EmployeeRepositoryTest {
 	void filtersByCountry() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%", Country.INDIA, null, PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%", Country.INDIA, null, null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).extracting(Employee::getCountry).containsOnly(Country.INDIA);
 		assertThat(page.getTotalElements()).isEqualTo(2);
@@ -130,7 +131,7 @@ class EmployeeRepositoryTest {
 	void filtersByDepartment() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%", null, "Sales", PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%", null, "Sales", null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).extracting(Employee::getDepartment).containsOnly("Sales");
 		assertThat(page.getTotalElements()).isEqualTo(3);
@@ -140,7 +141,7 @@ class EmployeeRepositoryTest {
 	void combinesSearchAndFiltersWithAnd() {
 		saveFixtures();
 
-		Page<Employee> page = repository.search("%asha%", Country.UK, "Sales", PageRequest.of(0, 10));
+		Page<Employee> page = repository.search("%asha%", Country.UK, "Sales", null, null, PageRequest.of(0, 10));
 
 		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactly("asha.rao2@acme.com");
 	}
@@ -150,8 +151,8 @@ class EmployeeRepositoryTest {
 		saveFixtures();
 		Sort sort = Sort.by("name", "id");
 
-		Page<Employee> first = repository.search("%", null, null, PageRequest.of(0, 3, sort));
-		Page<Employee> second = repository.search("%", null, null, PageRequest.of(1, 3, sort));
+		Page<Employee> first = repository.search("%", null, null, null, null, PageRequest.of(0, 3, sort));
+		Page<Employee> second = repository.search("%", null, null, null, null, PageRequest.of(1, 3, sort));
 
 		// The two "Asha Rao" rows tie on name, so id decides their order.
 		assertThat(first.getContent()).extracting(Employee::getEmail)
@@ -159,6 +160,74 @@ class EmployeeRepositoryTest {
 		assertThat(second.getContent()).extracting(Employee::getName).containsExactly("Chitra Iyer", "Dan Smith");
 		assertThat(first.getTotalPages()).isEqualTo(2);
 		assertThat(first.getTotalElements()).isEqualTo(5);
+	}
+
+	@Test
+	void salaryRangeIsInclusiveOnBothEnds() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", Country.US, null, new BigDecimal("70000.00"),
+				new BigDecimal("90000.00"), PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactlyInAnyOrder("ben@acme.com", "dan@acme.com");
+	}
+
+	@Test
+	void minSalaryAloneHasNoUpperLimit() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", Country.US, null, new BigDecimal("80000.00"), null,
+				PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactly("ben@acme.com");
+	}
+
+	@Test
+	void maxSalaryAloneHasNoLowerLimit() {
+		saveFixtures();
+
+		Page<Employee> page = repository.search("%", Country.US, null, null, new BigDecimal("70000.00"),
+				PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactly("dan@acme.com");
+	}
+
+	@Test
+	void salaryRangeCombinesWithOtherFiltersAndStaysInsideTheCountry() {
+		saveFixtures();
+
+		// Chitra (India, 40000) and Asha (UK, 50000) are both in this numeric range; only the country filter separates them.
+		Page<Employee> page = repository.search("%", Country.INDIA, "Sales", new BigDecimal("30000.00"),
+				new BigDecimal("60000.00"), PageRequest.of(0, 10));
+
+		assertThat(page.getContent()).extracting(Employee::getEmail).containsExactly("chitra@acme.com");
+	}
+
+	@Test
+	void aggregatesDepartmentsForOneCountrySortedByAverageDescending() {
+		repository.saveAll(List.of(
+				new Employee("A", "a@acme.com", "Engineering", "Software Engineer", Country.INDIA, new BigDecimal("55000.00")),
+				new Employee("B", "b@acme.com", "Engineering", "QA Engineer", Country.INDIA, new BigDecimal("45000.00")),
+				new Employee("C", "c@acme.com", "Sales", "Account Manager", Country.INDIA, new BigDecimal("80000.00")),
+				new Employee("D", "d@acme.com", "Sales", "Account Manager", Country.UK, new BigDecimal("1.00"))));
+		entityManager.flush();
+		entityManager.clear();
+
+		List<DepartmentAggregate> aggregates = repository.aggregateByDepartment(Country.INDIA);
+
+		// Sales averages 80000, Engineering 50000; the UK row must not leak into either.
+		assertThat(aggregates).extracting(DepartmentAggregate::department).containsExactly("Sales", "Engineering");
+		assertThat(aggregates.get(0).totalSalary()).isEqualTo(new BigDecimal("80000.00"));
+		assertThat(aggregates.get(0).employeeCount()).isEqualTo(1);
+		assertThat(aggregates.get(1).totalSalary()).isEqualTo(new BigDecimal("100000.00"));
+		assertThat(aggregates.get(1).employeeCount()).isEqualTo(2);
+	}
+
+	@Test
+	void departmentAggregateIsEmptyForCountryWithoutEmployees() {
+		repository.saveAndFlush(employee("asha@acme.com", "55000.00"));
+
+		assertThat(repository.aggregateByDepartment(Country.UK)).isEmpty();
 	}
 
 	@Test

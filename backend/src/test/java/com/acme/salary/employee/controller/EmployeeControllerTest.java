@@ -6,6 +6,7 @@ import com.acme.salary.employee.dto.EmployeeResponse;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.exception.DuplicateEmailException;
 import com.acme.salary.employee.exception.EmployeeNotFoundException;
+import com.acme.salary.employee.exception.InvalidFilterException;
 import com.acme.salary.employee.service.EmployeeService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,7 @@ class EmployeeControllerTest {
 
 	@Test
 	void listPassesFiltersAndPagingToService() throws Exception {
-		when(service.list("asha", Country.INDIA, "Engineering", 1, 10))
+		when(service.list("asha", Country.INDIA, "Engineering", null, null, 1, 10))
 				.thenReturn(new PageResponse<>(List.of(response()), 1, 10, 11, 2));
 
 		mockMvc.perform(get("/api/employees")
@@ -66,11 +67,41 @@ class EmployeeControllerTest {
 
 	@Test
 	void listUsesDefaultsWhenNoParametersAreGiven() throws Exception {
-		when(service.list(null, null, null, 0, 20)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0));
+		when(service.list(null, null, null, null, null, 0, 20)).thenReturn(new PageResponse<>(List.of(), 0, 20, 0, 0));
 
 		mockMvc.perform(get("/api/employees"))
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.content").isEmpty());
+	}
+
+	@Test
+	void listPassesSalaryRangeToService() throws Exception {
+		when(service.list(null, Country.INDIA, null, new BigDecimal("40000"), new BigDecimal("60000.50"), 0, 20))
+				.thenReturn(new PageResponse<>(List.of(response()), 0, 20, 1, 1));
+
+		mockMvc.perform(get("/api/employees").param("country", "INDIA")
+						.param("minSalary", "40000").param("maxSalary", "60000.50"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.content[0].name").value("Asha Rao"));
+	}
+
+	@Test
+	void listReturns400WhenSalaryFilterIsInvalid() throws Exception {
+		when(service.list(null, null, null, new BigDecimal("40000"), null, 0, 20))
+				.thenThrow(new InvalidFilterException("minSalary and maxSalary require a country"));
+
+		mockMvc.perform(get("/api/employees").param("minSalary", "40000"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value("minSalary and maxSalary require a country"))
+				.andExpect(jsonPath("$.errors").isEmpty());
+	}
+
+	@Test
+	void listRejectsNonNumericSalary() throws Exception {
+		mockMvc.perform(get("/api/employees").param("country", "INDIA").param("minSalary", "lots"))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value("Invalid value for parameter 'minSalary'"));
 	}
 
 	@Test

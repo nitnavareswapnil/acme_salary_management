@@ -7,6 +7,7 @@ import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import com.acme.salary.employee.exception.DuplicateEmailException;
 import com.acme.salary.employee.exception.EmployeeNotFoundException;
+import com.acme.salary.employee.exception.InvalidFilterException;
 import com.acme.salary.employee.repository.EmployeeRepository;
 
 import org.springframework.data.domain.PageRequest;
@@ -14,6 +15,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 
@@ -51,9 +53,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 
 	@Override
 	@Transactional(readOnly = true)
-	public PageResponse<EmployeeResponse> list(String search, Country country, String department, int page, int size) {
+	public PageResponse<EmployeeResponse> list(String search, Country country, String department, BigDecimal minSalary,
+			BigDecimal maxSalary, int page, int size) {
+		validateSalaryRange(country, minSalary, maxSalary);
 		PageRequest pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), MAX_PAGE_SIZE), LIST_ORDER);
-		return PageResponse.from(repository.search(toPattern(search), country, blankToNull(department), pageable)
+		return PageResponse.from(repository.search(toPattern(search), country, blankToNull(department), minSalary,
+				maxSalary, pageable)
 				.map(EmployeeResponse::from));
 	}
 
@@ -105,6 +110,16 @@ public class EmployeeServiceImpl implements EmployeeService {
 			throw new EmployeeNotFoundException(missing);
 		}
 		repository.deleteAllByIdInBatch(requested);
+	}
+
+	// Salaries in different currencies cannot be compared, so a range only makes sense inside one country.
+	private void validateSalaryRange(Country country, BigDecimal minSalary, BigDecimal maxSalary) {
+		if (country == null && (minSalary != null || maxSalary != null)) {
+			throw new InvalidFilterException("minSalary and maxSalary require a country");
+		}
+		if (minSalary != null && maxSalary != null && minSalary.compareTo(maxSalary) > 0) {
+			throw new InvalidFilterException("minSalary must not exceed maxSalary");
+		}
 	}
 
 	// Bound as a parameter, so user input never becomes part of the query text.

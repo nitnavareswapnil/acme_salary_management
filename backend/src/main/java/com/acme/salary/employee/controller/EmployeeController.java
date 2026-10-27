@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
@@ -36,9 +37,11 @@ public class EmployeeController {
 			@RequestParam(required = false) String search,
 			@RequestParam(required = false) Country country,
 			@RequestParam(required = false) String department,
+			@RequestParam(required = false) BigDecimal minSalary,
+			@RequestParam(required = false) BigDecimal maxSalary,
 			@RequestParam(defaultValue = "0") int page,
 			@RequestParam(defaultValue = "20") int size) {
-		return service.list(search, country, department, page, size);
+		return service.list(search, country, department, minSalary, maxSalary, page, size);
 	}
 
 	@GetMapping("/departments")

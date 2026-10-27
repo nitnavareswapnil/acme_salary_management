@@ -5,6 +5,7 @@ import com.acme.salary.employee.dto.EmployeeRequest;
 import com.acme.salary.employee.dto.EmployeeResponse;
 import com.acme.salary.employee.entity.Country;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 public interface EmployeeService {
@@ -13,7 +14,8 @@ public interface EmployeeService {
 
 	EmployeeResponse get(Long id);
 
-	PageResponse<EmployeeResponse> list(String search, Country country, String department, int page, int size);
+	PageResponse<EmployeeResponse> list(String search, Country country, String department, BigDecimal minSalary,
+			BigDecimal maxSalary, int page, int size);
 
 	List<String> departments();
 

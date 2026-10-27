@@ -2,6 +2,7 @@ package com.acme.salary.common.exception;
 
 import com.acme.salary.employee.exception.DuplicateEmailException;
 import com.acme.salary.employee.exception.EmployeeNotFoundException;
+import com.acme.salary.employee.exception.InvalidFilterException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -55,6 +56,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@ExceptionHandler(MethodArgumentTypeMismatchException.class)
 	public ResponseEntity<Object> handleTypeMismatch(MethodArgumentTypeMismatchException exception) {
 		return body(HttpStatus.BAD_REQUEST, "Invalid value for parameter '" + exception.getName() + "'", List.of());
+	}
+
+	@ExceptionHandler(InvalidFilterException.class)
+	public ResponseEntity<Object> handleInvalidFilter(InvalidFilterException exception) {
+		return body(HttpStatus.BAD_REQUEST, exception.getMessage(), List.of());
 	}
 
 	@ExceptionHandler(EmployeeNotFoundException.class)

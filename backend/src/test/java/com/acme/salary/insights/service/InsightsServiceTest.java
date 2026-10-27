@@ -1,10 +1,12 @@
 package com.acme.salary.insights.service;
 
 import com.acme.salary.employee.dto.CountrySalaryAggregate;
+import com.acme.salary.employee.dto.DepartmentAggregate;
 import com.acme.salary.employee.dto.JobTitleAggregate;
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.repository.EmployeeRepository;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.DepartmentAverage;
 import com.acme.salary.insights.dto.JobTitleAverage;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,5 +91,27 @@ class InsightsServiceTest {
 
 	private CountrySalaryAggregate aggregate(Country country, String min, String max, String total, long count) {
 		return new CountrySalaryAggregate(country, new BigDecimal(min), new BigDecimal(max), new BigDecimal(total), count);
+	}
+
+	@Test
+	void departmentAveragesAreRoundedHalfUpAndKeepRepositoryOrder() {
+		when(repository.aggregateByDepartment(Country.UK)).thenReturn(List.of(
+				// 100.05 / 2 = 50.025, a tie that HALF_UP sends to 50.03.
+				new DepartmentAggregate("Sales", new BigDecimal("100.05"), 2),
+				new DepartmentAggregate("Engineering", new BigDecimal("100.01"), 3)));
+
+		List<DepartmentAverage> averages = service.departmentAverages(Country.UK);
+
+		assertThat(averages).extracting(DepartmentAverage::department).containsExactly("Sales", "Engineering");
+		assertThat(averages.get(0).avgSalary()).isEqualTo(new BigDecimal("50.03"));
+		assertThat(averages.get(0).employeeCount()).isEqualTo(2);
+		assertThat(averages.get(1).avgSalary()).isEqualTo(new BigDecimal("33.34"));
+	}
+
+	@Test
+	void departmentAveragesAreEmptyWhenCountryHasNoEmployees() {
+		when(repository.aggregateByDepartment(Country.UK)).thenReturn(List.of());
+
+		assertThat(service.departmentAverages(Country.UK)).isEmpty();
 	}
 }

@@ -2,6 +2,7 @@ package com.acme.salary.insights.controller;
 
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.DepartmentAverage;
 import com.acme.salary.insights.dto.JobTitleAverage;
 import com.acme.salary.insights.service.InsightsService;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,6 +25,11 @@ public class InsightsController {
 	@GetMapping("/countries")
 	public List<CountrySalaryStats> countryStats() {
 		return service.countryStats();
+	}
+
+	@GetMapping("/countries/{country}/departments")
+	public List<DepartmentAverage> departmentAverages(@PathVariable Country country) {
+		return service.departmentAverages(country);
 	}
 
 	@GetMapping("/countries/{country}/job-titles")

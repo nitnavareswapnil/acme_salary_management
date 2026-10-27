@@ -2,6 +2,7 @@ package com.acme.salary.insights.controller;
 
 import com.acme.salary.employee.entity.Country;
 import com.acme.salary.insights.dto.CountrySalaryStats;
+import com.acme.salary.insights.dto.DepartmentAverage;
 import com.acme.salary.insights.dto.JobTitleAverage;
 import com.acme.salary.insights.service.InsightsService;
 import org.junit.jupiter.api.Test;
@@ -79,6 +80,27 @@ class InsightsControllerTest {
 		mockMvc.perform(get("/api/insights/countries/FRANCE/job-titles"))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(400))
+				.andExpect(jsonPath("$.message").value("Invalid value for parameter 'country'"));
+	}
+
+	@Test
+	void returnsDepartmentAveragesForCountry() throws Exception {
+		when(service.departmentAverages(Country.INDIA)).thenReturn(List.of(
+				new DepartmentAverage("Sales", new BigDecimal("80000.00"), 1),
+				new DepartmentAverage("Engineering", new BigDecimal("50000.00"), 2)));
+
+		mockMvc.perform(get("/api/insights/countries/INDIA/departments"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0].department").value("Sales"))
+				.andExpect(jsonPath("$[0].avgSalary").value(80000.00))
+				.andExpect(jsonPath("$[0].employeeCount").value(1))
+				.andExpect(jsonPath("$[1].department").value("Engineering"));
+	}
+
+	@Test
+	void rejectsUnknownCountryForDepartmentAveragesWith400() throws Exception {
+		mockMvc.perform(get("/api/insights/countries/FRANCE/departments"))
+				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value("Invalid value for parameter 'country'"));
 	}
 }

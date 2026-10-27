@@ -6,6 +6,7 @@ import com.acme.salary.employee.entity.Country;
 import com.acme.salary.employee.entity.Employee;
 import com.acme.salary.employee.exception.DuplicateEmailException;
 import com.acme.salary.employee.exception.EmployeeNotFoundException;
+import com.acme.salary.employee.exception.InvalidFilterException;
 import com.acme.salary.employee.repository.EmployeeRepository;
 import com.acme.salary.common.dto.PageResponse;
 import org.junit.jupiter.api.Test;
@@ -220,9 +221,9 @@ class EmployeeServiceTest {
 	@Test
 	void listMapsPageToResponseWithCurrency() {
 		Page<Employee> page = new PageImpl<>(List.of(employee("asha@acme.com", Country.UK)), PageRequest.of(1, 10), 11);
-		when(repository.search(any(), any(), any(), any(Pageable.class))).thenReturn(page);
+		when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class))).thenReturn(page);
 
-		PageResponse<EmployeeResponse> response = service.list(null, null, null, 1, 10);
+		PageResponse<EmployeeResponse> response = service.list(null, null, null, null, null, 1, 10);
 
 		assertThat(response.content()).extracting(EmployeeResponse::currency).containsExactly("GBP");
 		assertThat(response.page()).isEqualTo(1);
@@ -233,14 +234,14 @@ class EmployeeServiceTest {
 
 	@Test
 	void listPassesFiltersAndStableSortToRepository() {
-		when(repository.search(any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
+		when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
 
-		service.list("  AsHa ", Country.INDIA, "Engineering", 2, 25);
+		service.list("  AsHa ", Country.INDIA, "Engineering", null, null, 2, 25);
 
 		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
 		// Search is trimmed, lower-cased and wrapped as a contains-pattern.
 		verify(repository).search(eq("%asha%"), eq(Country.INDIA),
-				eq("Engineering"), pageable.capture());
+				eq("Engineering"), isNull(), isNull(), pageable.capture());
 		assertThat(pageable.getValue().getPageNumber()).isEqualTo(2);
 		assertThat(pageable.getValue().getPageSize()).isEqualTo(25);
 		assertThat(pageable.getValue().getSort()).isEqualTo(Sort.by("name", "id"));
@@ -248,25 +249,58 @@ class EmployeeServiceTest {
 
 	@Test
 	void listTreatsBlankSearchAndDepartmentAsNoFilter() {
-		when(repository.search(any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
+		when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
 
-		service.list("   ", null, " ", 0, 20);
+		service.list("   ", null, " ", null, null, 0, 20);
 
-		verify(repository).search(eq("%"), isNull(), isNull(), any(Pageable.class));
+		verify(repository).search(eq("%"), isNull(), isNull(), isNull(), isNull(), any(Pageable.class));
 	}
 
 	@Test
 	void listCapsPageSizeAndClampsInvalidPaging() {
-		when(repository.search(any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
+		when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
 		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
 
-		service.list(null, null, null, 0, 1000);
-		service.list(null, null, null, -3, 0);
+		service.list(null, null, null, null, null, 0, 1000);
+		service.list(null, null, null, null, null, -3, 0);
 
-		verify(repository, times(2)).search(any(), any(), any(), pageable.capture());
+		verify(repository, times(2)).search(any(), any(), any(), any(), any(), pageable.capture());
 		assertThat(pageable.getAllValues().get(0).getPageSize()).isEqualTo(100);
 		assertThat(pageable.getAllValues().get(1).getPageNumber()).isZero();
 		assertThat(pageable.getAllValues().get(1).getPageSize()).isEqualTo(1);
+	}
+
+	@Test
+	void listPassesSalaryRangeToRepositoryWhenCountryIsGiven() {
+		when(repository.search(any(), any(), any(), any(), any(), any(Pageable.class))).thenReturn(Page.empty());
+
+		service.list(null, Country.INDIA, null, new BigDecimal("40000"), new BigDecimal("60000"), 0, 20);
+
+		verify(repository).search(eq("%"), eq(Country.INDIA), isNull(), eq(new BigDecimal("40000")),
+				eq(new BigDecimal("60000")), any(Pageable.class));
+	}
+
+	@Test
+	void listRejectsMinSalaryWithoutCountry() {
+		assertThatThrownBy(() -> service.list(null, null, null, new BigDecimal("40000"), null, 0, 20))
+				.isInstanceOf(InvalidFilterException.class)
+				.hasMessage("minSalary and maxSalary require a country");
+		verify(repository, never()).search(any(), any(), any(), any(), any(), any(Pageable.class));
+	}
+
+	@Test
+	void listRejectsMaxSalaryWithoutCountry() {
+		assertThatThrownBy(() -> service.list(null, null, null, null, new BigDecimal("60000"), 0, 20))
+				.isInstanceOf(InvalidFilterException.class)
+				.hasMessage("minSalary and maxSalary require a country");
+	}
+
+	@Test
+	void listRejectsMinSalaryAboveMaxSalary() {
+		assertThatThrownBy(() -> service.list(null, Country.UK, null, new BigDecimal("60000"), new BigDecimal("40000"), 0, 20))
+				.isInstanceOf(InvalidFilterException.class)
+				.hasMessage("minSalary must not exceed maxSalary");
+		verify(repository, never()).search(any(), any(), any(), any(), any(), any(Pageable.class));
 	}
 
 	@Test
