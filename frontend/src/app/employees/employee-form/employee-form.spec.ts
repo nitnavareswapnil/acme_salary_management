@@ -13,7 +13,13 @@ describe('EmployeeForm', () => {
   let http: HttpTestingController;
   let navigate: ReturnType<typeof vi.spyOn>;
 
-  function create(id: string | null, departments: string[] | 'fail' = ['Engineering', 'Sales']) {
+  const JOB_TITLES = ['Account Manager', 'Senior Software Engineer', 'Software Engineer'];
+
+  function create(
+    id: string | null,
+    departments: string[] | 'fail' = ['Engineering', 'Sales'],
+    jobTitles: string[] | 'fail' = JOB_TITLES,
+  ) {
     TestBed.configureTestingModule({
       imports: [EmployeeForm],
       providers: [
@@ -33,6 +39,12 @@ describe('EmployeeForm', () => {
       request.flush('boom', { status: 500, statusText: 'Server Error' });
     } else {
       request.flush(departments);
+    }
+    const titlesRequest = http.expectOne(`${API}/job-titles`);
+    if (jobTitles === 'fail') {
+      titlesRequest.flush('boom', { status: 500, statusText: 'Server Error' });
+    } else {
+      titlesRequest.flush(jobTitles);
     }
     fixture.detectChanges();
   }
@@ -330,6 +342,125 @@ describe('EmployeeForm', () => {
       expect(element().querySelector('form')).toBeNull();
     });
   });
+
+  describe('job title autocomplete', () => {
+    it('is an autocomplete text input, not a select', () => {
+      create(null);
+
+      expect(jobTitleInput().getAttribute('aria-autocomplete')).toBe('list');
+    });
+
+    it('suggests every job title from the backend while the field is empty', () => {
+      create(null);
+
+      type('');
+
+      expect(options()).toEqual(JOB_TITLES);
+    });
+
+    it('narrows the suggestions as the user types, ignoring case', () => {
+      create(null);
+
+      type('ENGINEER');
+
+      expect(options()).toEqual(['Senior Software Engineer', 'Software Engineer']);
+    });
+
+    it('matches anywhere in the title and ignores surrounding spaces', () => {
+      create(null);
+
+      type('  manag ');
+
+      expect(options()).toEqual(['Account Manager']);
+    });
+
+    it('shows no suggestions when nothing matches', () => {
+      create(null);
+
+      type('zzz');
+
+      expect(options()).toEqual([]);
+    });
+
+    it('fills the control when a suggestion is chosen', () => {
+      create(null);
+      type('soft');
+
+      (document.querySelectorAll('mat-option')[1] as HTMLElement).click();
+      fixture.detectChanges();
+
+      expect(component.form.controls.jobTitle.value).toBe('Software Engineer');
+    });
+
+    it('still accepts a new title that is not in the list', () => {
+      create(null);
+      fill({ jobTitle: 'Chief Happiness Officer' });
+      submit();
+
+      const request = http.expectOne(API);
+      expect(request.request.body.jobTitle).toBe('Chief Happiness Officer');
+      request.flush({ ...validValues(), jobTitle: 'Chief Happiness Officer', id: 9, currency: 'INR' });
+    });
+
+    it('keeps working as a plain text field when the titles cannot be loaded', () => {
+      create(null, ['Engineering'], 'fail');
+
+      type('soft');
+
+      expect(options()).toEqual([]);
+      expect(element().querySelector('[role="alert"]')).toBeNull();
+      fill({ jobTitle: 'Software Engineer' });
+      expect(component.form.controls.jobTitle.valid).toBe(true);
+    });
+  });
+
+  describe('layout', () => {
+    beforeEach(() => create(null));
+
+    it('groups the fields into two cards', () => {
+      const cards = Array.from(element().querySelectorAll('mat-card'));
+
+      expect(cards.map((card) => card.querySelector('h2')?.textContent?.trim())).toEqual([
+        'Personal information',
+        'Role and compensation',
+      ]);
+    });
+
+    it('puts name, email and country in the first card', () => {
+      expect(fieldsIn(0)).toEqual(['name', 'email', 'country']);
+    });
+
+    it('puts department, job title and salary in the second card', () => {
+      expect(fieldsIn(1)).toEqual(['department', 'jobTitle', 'baseSalary']);
+    });
+
+    it('keeps one form around both cards, with the actions after them', () => {
+      const form = element().querySelector('form') as HTMLFormElement;
+
+      expect(form.querySelectorAll('mat-card').length).toBe(2);
+      expect(form.querySelector('.actions button[type="submit"]')).not.toBeNull();
+    });
+  });
+
+  function fieldsIn(card: number): string[] {
+    return Array.from(element().querySelectorAll('mat-card')[card].querySelectorAll('[formControlName]')).map(
+      (control) => control.getAttribute('formControlName') ?? '',
+    );
+  }
+
+  function jobTitleInput(): HTMLInputElement {
+    return element().querySelector('input[formControlName="jobTitle"]') as HTMLInputElement;
+  }
+
+  // Focusing opens the suggestion panel; the input event is what typing produces.
+  function type(text: string) {
+    const input = jobTitleInput();
+    input.focus();
+    input.dispatchEvent(new Event('focusin'));
+    input.value = text;
+    input.dispatchEvent(new Event('input'));
+    fixture.detectChanges();
+  }
 
   function openDepartmentSelect() {
     (element().querySelector('mat-select[formControlName="department"] .mat-mdc-select-trigger') as HTMLElement).click();

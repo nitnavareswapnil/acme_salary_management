@@ -1,7 +1,10 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatButtonModule } from '@angular/material/button';
+import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
@@ -32,7 +35,9 @@ function requiredText(control: AbstractControl): ValidationErrors | null {
   imports: [
     ReactiveFormsModule,
     RouterLink,
+    MatAutocompleteModule,
     MatButtonModule,
+    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatProgressBarModule,
@@ -70,6 +75,14 @@ export class EmployeeForm {
   protected readonly departments = signal<string[]>([]);
   protected readonly departmentsFailed = signal(false);
 
+  // Suggestions only: a new title can still be typed, so a failed load needs no message.
+  private readonly jobTitles = signal<string[]>([]);
+  private readonly typedJobTitle = toSignal(this.form.controls.jobTitle.valueChanges, { initialValue: '' });
+  protected readonly jobTitleSuggestions = computed(() => {
+    const typed = this.typedJobTitle().trim().toLowerCase();
+    return this.jobTitles().filter((title) => title.toLowerCase().includes(typed));
+  });
+
   // null when adding a new employee.
   protected readonly employeeId = Number(inject(ActivatedRoute).snapshot.paramMap.get('id')) || null;
   protected readonly loading = signal(false);
@@ -82,6 +95,11 @@ export class EmployeeForm {
       next: (departments) => this.departments.set(departments),
       // The field only accepts listed departments, so a failure must be visible instead of silently blocking Save.
       error: () => this.departmentsFailed.set(true),
+    });
+
+    this.employeeService.jobTitles().subscribe({
+      next: (titles) => this.jobTitles.set(titles),
+      error: () => this.jobTitles.set([]),
     });
 
     if (this.employeeId !== null) {

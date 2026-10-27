@@ -1,7 +1,27 @@
 form {
+  max-width: 960px;
+}
+
+// One column on phones; two equal cards from tablet width up.
+.columns {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+
+  @media (min-width: 720px) {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+mat-card-content {
   display: flex;
   flex-direction: column;
-  max-width: 560px;
+  padding-top: 16px;
+}
+
+h2 {
+  margin: 0;
 }
 
 .banner {
@@ -13,6 +33,7 @@ form {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 16px;
 }
 
 .hint-error {

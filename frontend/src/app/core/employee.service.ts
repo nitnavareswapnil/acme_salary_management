@@ -40,4 +40,8 @@ export class EmployeeService {
   departments(): Observable<string[]> {
     return this.http.get<string[]>(`${this.baseUrl}/departments`);
   }
+
+  jobTitles(): Observable<string[]> {
+    return this.http.get<string[]>(`${this.baseUrl}/job-titles`);
+  }
 }

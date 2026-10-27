@@ -124,4 +124,15 @@ describe('EmployeeService', () => {
   function emptyPage(): PageResponse<Employee> {
     return { content: [], page: 0, size: 20, totalElements: 0, totalPages: 0 };
   }
+
+  it('loads job titles for suggestions', () => {
+    let result: string[] = [];
+    service.jobTitles().subscribe((titles) => (result = titles));
+
+    const request = http.expectOne('http://localhost:8080/api/employees/job-titles');
+    expect(request.request.method).toBe('GET');
+    request.flush(['Account Manager', 'Software Engineer']);
+
+    expect(result).toEqual(['Account Manager', 'Software Engineer']);
+  });
 });
