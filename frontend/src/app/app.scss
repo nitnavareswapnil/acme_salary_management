@@ -1,11 +1,24 @@
-.title {
+.brand {
   margin-right: 24px;
+  color: inherit;
+  font: var(--mat-sys-title-large);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 4px;
+    border-radius: 4px;
+  }
 }
 
 .active {
   text-decoration: underline;
 }
 
+// Content stays readable on wide screens instead of stretching edge to edge.
 main {
+  max-width: 1280px;
+  margin: 0 auto;
   padding: 24px;
 }
