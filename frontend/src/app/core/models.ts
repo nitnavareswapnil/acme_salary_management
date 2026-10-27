@@ -47,6 +47,9 @@ export interface EmployeeQuery {
   search?: string;
   country?: Country | '';
   department?: string;
+  // Only meaningful together with a country: salaries in different currencies are never compared.
+  minSalary?: number | null;
+  maxSalary?: number | null;
   page: number;
   size: number;
 }

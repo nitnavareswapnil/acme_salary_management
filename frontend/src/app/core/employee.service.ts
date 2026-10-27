@@ -18,6 +18,13 @@ export class EmployeeService {
         params = params.set(key, value);
       }
     }
+    for (const key of ['minSalary', 'maxSalary'] as const) {
+      const value = query[key];
+      // 0 is a valid bound, so only null and undefined are left out.
+      if (value != null) {
+        params = params.set(key, value);
+      }
+    }
     return this.http.get<PageResponse<Employee>>(this.baseUrl, { params });
   }
 
@@ -35,6 +42,11 @@ export class EmployeeService {
 
   delete(id: number): Observable<void> {
     return this.http.delete<void>(`${this.baseUrl}/${id}`);
+  }
+
+  // Ids go in the body (the backend's contract): a page of ids in the URL could exceed proxy length limits.
+  deleteMany(ids: number[]): Observable<void> {
+    return this.http.delete<void>(this.baseUrl, { body: { ids } });
   }
 
   departments(): Observable<string[]> {

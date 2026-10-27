@@ -135,4 +135,33 @@ describe('EmployeeService', () => {
 
     expect(result).toEqual(['Account Manager', 'Software Engineer']);
   });
+
+  it('sends the salary range when it is set, including a minimum of zero', () => {
+    service.list({ country: 'INDIA', minSalary: 0, maxSalary: 60000, page: 0, size: 20 }).subscribe();
+
+    const request = http.expectOne((r) => r.url === 'http://localhost:8080/api/employees');
+    expect(request.request.params.get('minSalary')).toBe('0');
+    expect(request.request.params.get('maxSalary')).toBe('60000');
+    request.flush(emptyPage());
+  });
+
+  it('leaves out an empty salary range', () => {
+    service.list({ minSalary: null, maxSalary: null, page: 0, size: 20 }).subscribe();
+
+    const request = http.expectOne((r) => r.url === 'http://localhost:8080/api/employees');
+    expect(request.request.params.keys().sort()).toEqual(['page', 'size']);
+    request.flush(emptyPage());
+  });
+
+  it('deletes several employees with one request carrying the ids in the body', () => {
+    let done = false;
+    service.deleteMany([1, 2, 3]).subscribe(() => (done = true));
+
+    const request = http.expectOne('http://localhost:8080/api/employees');
+    expect(request.request.method).toBe('DELETE');
+    expect(request.request.body).toEqual({ ids: [1, 2, 3] });
+    request.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(done).toBe(true);
+  });
 });

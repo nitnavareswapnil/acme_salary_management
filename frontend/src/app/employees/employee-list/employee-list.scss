@@ -4,6 +4,26 @@
   margin-bottom: 8px;
 }
 
+.summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+// A tinted chip so the count stands out from the filters above and the table below.
+.total {
+  padding: 6px 16px;
+  border-radius: 16px;
+  background: var(--mat-sys-primary-container);
+  color: var(--mat-sys-on-primary-container);
+  font: var(--mat-sys-title-medium);
+
+  strong {
+    font-size: 1.25em;
+  }
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -12,6 +32,25 @@
 
 .search {
   min-width: 280px;
+}
+
+.salary {
+  width: 160px;
+}
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 8px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  background: var(--mat-sys-secondary-container);
+  color: var(--mat-sys-on-secondary-container);
+}
+
+.select {
+  width: 48px;
 }
 
 .state {
