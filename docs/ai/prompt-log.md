@@ -151,3 +151,9 @@ Departments and Job Roles are not linked. We need to link it so correct data wil
 **What the AI did:** Researched Vercel Hobby limits and `vercel.json` syntax from Vercel's docs. Added `frontend/vercel.json` (SPA rewrite, same security headers and CSP as before, install command, output directory). Removed `netlify.toml`, `_headers` and `_redirects`. Rewrote section 3 of `docs/deployment.md` (with the reason for the change), the limits table and sources; updated ADR 004 and the comment in `environment.ts`. Verified the CSP in `vercel.json` is identical to the old `_headers` one and that `connect-src` matches `apiBaseUrl`; `npm run build` still succeeds.
 **Not verified:** the rewrite and headers on a live Vercel deployment; dashboard menu names; Vercel's default Node version.
 **My review:** TODO (author)
+
+## E1: Clear filters button
+**Prompt (summary):** Add a "Clear Filters" option in the filter row, beside the filter options.
+**What the AI did:** Wrote five failing specs first (button sits in the filter row, disabled while nothing is filtered, enabled after a filter, one request that clears search/country/department/salary range and keeps the page size, no stale search request when cleared mid-typing). Then added `clearFilters()` and a `filtered` computed (also reused by the total-count wording), a stroked button in the filter row, and changed the search debounce to compare with the applied term instead of `distinctUntilChanged`, so a search cleared while still being typed sends nothing.
+**Result:** `npm test` 190 passing (5 new), `npm run build` succeeds. Layout not checked in a browser.
+**My review:** TODO (author)

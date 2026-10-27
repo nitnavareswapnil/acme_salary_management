@@ -42,6 +42,10 @@
     <input matInput type="number" class="max-salary" [formControl]="maxSalary" />
     <mat-error>{{ salaryError(maxSalary) }}</mat-error>
   </mat-form-field>
+
+  <button mat-stroked-button type="button" class="clear-filters" [disabled]="!filtered()" (click)="clearFilters()">
+    Clear filters
+  </button>
 </div>
 
 @if (showTotal()) {

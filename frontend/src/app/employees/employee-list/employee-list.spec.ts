@@ -560,6 +560,87 @@ describe('EmployeeList', () => {
     });
   });
 
+  describe('clear filters', () => {
+    beforeEach(() => settle());
+
+    it('sits in the filter row and is disabled while no filter is set', () => {
+      expect(clearButton().closest('.filters')).not.toBeNull();
+      expect(clearButton().disabled).toBe(true);
+    });
+
+    it('is enabled once a filter has been applied', () => {
+      component.department.setValue('Sales');
+      fixture.detectChanges();
+      listRequest().flush(page([], 0));
+      fixture.detectChanges();
+
+      expect(clearButton().disabled).toBe(false);
+    });
+
+    it('removes every filter with a single request and empties the inputs', () => {
+      chooseCountry('INDIA');
+      component.department.setValue('Sales');
+      fixture.detectChanges();
+      listRequest().flush(page([], 0));
+      typeSalary('min', '40000');
+      searchInput().value = 'asha';
+      searchInput().dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+      listRequest().flush(page([], 0));
+      fixture.detectChanges();
+
+      clearButton().click();
+      fixture.detectChanges();
+
+      const request = listRequest();
+      expect(request.request.params.keys().sort()).toEqual(['page', 'size']);
+      request.flush(page([], 0));
+      fixture.detectChanges();
+      expect(searchInput().value).toBe('');
+      expect(component.country.value).toBe('');
+      expect(component.department.value).toBe('');
+      expect(salaryInput('min').value).toBe('');
+      expect(salaryInput('min').disabled).toBe(true);
+      expect(clearButton().disabled).toBe(true);
+    });
+
+    it('keeps the page size and returns to the first page', () => {
+      paginator().page.emit({ pageIndex: 3, pageSize: 50, length: 10000 });
+      fixture.detectChanges();
+      listRequest().flush(page([], 10000));
+      component.department.setValue('Sales');
+      fixture.detectChanges();
+      listRequest().flush(page([], 10000));
+      fixture.detectChanges();
+
+      clearButton().click();
+      fixture.detectChanges();
+
+      const request = listRequest();
+      expect(request.request.params.get('page')).toBe('0');
+      expect(request.request.params.get('size')).toBe('50');
+      request.flush(page([], 10000));
+    });
+
+    it('does not send the cleared search term again when it was still being typed', () => {
+      component.department.setValue('Sales');
+      fixture.detectChanges();
+      listRequest().flush(page([], 0));
+      searchInput().value = 'asha';
+      searchInput().dispatchEvent(new Event('input'));
+      vi.advanceTimersByTime(100);
+
+      clearButton().click();
+      fixture.detectChanges();
+      listRequest().flush(page([], 0));
+      vi.advanceTimersByTime(300);
+      fixture.detectChanges();
+
+      http.expectNone((r) => r.url === API);
+    });
+  });
+
   describe('salary range filter', () => {
     beforeEach(() => settle());
 
@@ -695,6 +776,10 @@ describe('EmployeeList', () => {
 
   function bulkDeleteButton(): HTMLButtonElement {
     return element().querySelector('.bulk-bar button.bulk-delete') as HTMLButtonElement;
+  }
+
+  function clearButton(): HTMLButtonElement {
+    return element().querySelector('.filters button.clear-filters') as HTMLButtonElement;
   }
 
   function salaryInput(which: 'min' | 'max'): HTMLInputElement {

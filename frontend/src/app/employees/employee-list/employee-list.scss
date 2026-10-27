@@ -30,6 +30,11 @@
   gap: 16px;
 }
 
+.clear-filters {
+  // The form fields are 56px tall (plus room for hints); line the button up with their input boxes.
+  height: 56px;
+}
+
 .search {
   min-width: 280px;
 }

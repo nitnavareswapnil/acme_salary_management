@@ -13,7 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatTableModule } from '@angular/material/table';
 import { RouterLink } from '@angular/router';
-import { catchError, debounceTime, distinctUntilChanged, filter, map, merge, of, switchMap, tap } from 'rxjs';
+import { catchError, debounceTime, filter, map, merge, of, switchMap, tap } from 'rxjs';
 import { EmployeeService } from '../../core/employee.service';
 import { COUNTRY_LABELS, Country, Employee, EmployeeQuery } from '../../core/models';
 import { ConfirmDialog, ConfirmDialogData } from '../../shared/confirm-dialog/confirm-dialog';
@@ -75,13 +75,16 @@ export class EmployeeList {
   // The single source of truth for what is shown; every change to it triggers one request.
   protected readonly query = signal<EmployeeQuery>({ page: 0, size: 20 });
 
+  protected readonly filtered = computed(() => {
+    const { search, country, department, minSalary, maxSalary } = this.query();
+    return !!(search || country || department) || minSalary != null || maxSalary != null;
+  });
+
   // The backend's total already reflects every active filter, so it is the count of matching records.
   protected readonly totalSuffix = computed(() => {
     const total = this.totalElements();
-    const { search, country, department, minSalary, maxSalary } = this.query();
-    const filtered = !!(search || country || department) || minSalary != null || maxSalary != null;
     const noun = total === 1 ? 'employee' : 'employees';
-    if (!filtered) {
+    if (!this.filtered()) {
       return noun;
     }
     return `${noun} ${total === 1 ? 'matches' : 'match'} the filters`;
@@ -99,7 +102,13 @@ export class EmployeeList {
       .subscribe((departments) => this.departments.set(departments));
 
     this.search.valueChanges
-      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed())
+      // Compared with the applied term, not the previous keystroke, so a search cleared while still being typed
+      // does not send a request for a term the list no longer has.
+      .pipe(
+        debounceTime(300),
+        filter((search) => search !== (this.query().search ?? '')),
+        takeUntilDestroyed(),
+      )
       .subscribe((search) => this.changeFilter({ search }));
     this.country.valueChanges.pipe(takeUntilDestroyed()).subscribe((country) => {
       // A range typed for one currency means something else in another, so any country change clears it.
@@ -221,6 +230,15 @@ export class EmployeeList {
           }
         },
       });
+  }
+
+  protected clearFilters(): void {
+    // Each reset also empties its input and, for the country, the salary range. They would each request the list
+    // on their own, so the query is then replaced in one go (keeping the page size) and the requests merge into one.
+    this.search.reset();
+    this.country.reset();
+    this.department.reset();
+    this.query.update(({ size }) => ({ page: 0, size }));
   }
 
   protected salaryError(control: FormControl<number | null>): string {
