@@ -64,6 +64,12 @@ public class EmployeeServiceImpl implements EmployeeService {
 	}
 
 	@Override
+	@Transactional(readOnly = true)
+	public List<String> jobTitles() {
+		return repository.findDistinctJobTitles();
+	}
+
+	@Override
 	@Transactional
 	public EmployeeResponse update(Long id, EmployeeRequest request) {
 		Employee employee = find(id);
@@ -85,6 +91,20 @@ public class EmployeeServiceImpl implements EmployeeService {
 			throw new EmployeeNotFoundException(id);
 		}
 		repository.deleteById(id);
+	}
+
+	// All-or-nothing: every id is checked before anything is deleted, then one DELETE statement removes them,
+	// all inside this transaction. A missing id therefore leaves every row untouched.
+	@Override
+	@Transactional
+	public void deleteAll(List<Long> ids) {
+		List<Long> requested = ids.stream().distinct().toList();
+		List<Long> existing = repository.findExistingIds(requested);
+		List<Long> missing = requested.stream().filter(id -> !existing.contains(id)).toList();
+		if (!missing.isEmpty()) {
+			throw new EmployeeNotFoundException(missing);
+		}
+		repository.deleteAllByIdInBatch(requested);
 	}
 
 	// Bound as a parameter, so user input never becomes part of the query text.

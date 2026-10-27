@@ -171,6 +171,35 @@ class EmployeeRepositoryTest {
 	}
 
 	@Test
+	void listsDistinctJobTitlesAlphabetically() {
+		saveFixtures();
+
+		assertThat(repository.findDistinctJobTitles())
+				.containsExactly("Account Manager", "Sales Lead", "Software Engineer");
+	}
+
+	@Test
+	void findsOnlyTheIdsThatExist() {
+		saveFixtures();
+		Long first = repository.findAll().get(0).getId();
+
+		assertThat(repository.findExistingIds(List.of(first, -1L))).containsExactly(first);
+	}
+
+	@Test
+	void batchDeleteRemovesOnlyTheGivenIds() {
+		saveFixtures();
+		List<Employee> all = repository.findAll();
+		List<Long> doomed = List.of(all.get(0).getId(), all.get(1).getId());
+
+		repository.deleteAllByIdInBatch(doomed);
+		entityManager.clear();
+
+		assertThat(repository.count()).isEqualTo(3);
+		assertThat(repository.findExistingIds(doomed)).isEmpty();
+	}
+
+	@Test
 	void aggregatesSalariesPerCountryOrderedByCountry() {
 		saveFixtures();
 

@@ -31,6 +31,13 @@ public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 	@Query("SELECT DISTINCT e.department FROM Employee e ORDER BY e.department")
 	List<String> findDistinctDepartments();
 
+	@Query("SELECT DISTINCT e.jobTitle FROM Employee e ORDER BY e.jobTitle")
+	List<String> findDistinctJobTitles();
+
+	// Ids only, so checking up to a page of ids before a bulk delete does not load whole entities.
+	@Query("SELECT e.id FROM Employee e WHERE e.id IN :ids")
+	List<Long> findExistingIds(@Param("ids") List<Long> ids);
+
 	// SUM and COUNT instead of AVG: JPQL's AVG returns a Double, which would put floating point into money.
 	@Query("""
 			SELECT new com.acme.salary.employee.dto.CountrySalaryAggregate(

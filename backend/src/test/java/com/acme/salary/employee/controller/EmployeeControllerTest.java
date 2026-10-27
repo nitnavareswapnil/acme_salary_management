@@ -233,6 +233,59 @@ class EmployeeControllerTest {
 				.andExpect(status().isNotFound());
 	}
 
+	@Test
+	void listsJobTitles() throws Exception {
+		when(service.jobTitles()).thenReturn(List.of("Account Manager", "Software Engineer"));
+
+		mockMvc.perform(get("/api/employees/job-titles"))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$[0]").value("Account Manager"))
+				.andExpect(jsonPath("$[1]").value("Software Engineer"));
+	}
+
+	@Test
+	void bulkDeleteReturns204() throws Exception {
+		perform(delete("/api/employees"), Map.of("ids", List.of(1, 2)))
+				.andExpect(status().isNoContent());
+
+		verify(service).deleteAll(List.of(1L, 2L));
+	}
+
+	@Test
+	void bulkDeleteReturns404WhenAnyEmployeeIsUnknown() throws Exception {
+		doThrow(new EmployeeNotFoundException(List.of(99L))).when(service).deleteAll(List.of(1L, 99L));
+
+		perform(delete("/api/employees"), Map.of("ids", List.of(1, 99)))
+				.andExpect(status().isNotFound())
+				.andExpect(jsonPath("$.status").value(404))
+				.andExpect(jsonPath("$.message").value("Employees not found: [99]"));
+	}
+
+	@Test
+	void bulkDeleteRejectsEmptyIds() throws Exception {
+		assertFieldError(perform(delete("/api/employees"), Map.of("ids", List.of())), "ids");
+	}
+
+	@Test
+	void bulkDeleteRejectsMissingIds() throws Exception {
+		assertFieldError(perform(delete("/api/employees"), Map.of()), "ids");
+	}
+
+	@Test
+	void bulkDeleteRejectsNullIdInList() throws Exception {
+		Map<String, Object> body = new LinkedHashMap<>();
+		body.put("ids", java.util.Arrays.asList(1, null));
+
+		perform(delete("/api/employees"), body).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void bulkDeleteRejectsMoreThanOnePageOfIds() throws Exception {
+		List<Integer> tooMany = java.util.stream.IntStream.rangeClosed(1, 101).boxed().toList();
+
+		assertFieldError(perform(delete("/api/employees"), Map.of("ids", tooMany)), "ids");
+	}
+
 	private void assertFieldError(ResultActions result, String field) throws Exception {
 		result.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.status").value(400))

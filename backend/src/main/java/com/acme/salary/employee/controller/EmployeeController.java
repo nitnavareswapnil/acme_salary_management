@@ -1,6 +1,7 @@
 package com.acme.salary.employee.controller;
 
 import com.acme.salary.common.dto.PageResponse;
+import com.acme.salary.employee.dto.BulkDeleteRequest;
 import com.acme.salary.employee.dto.EmployeeRequest;
 import com.acme.salary.employee.dto.EmployeeResponse;
 import com.acme.salary.employee.entity.Country;
@@ -45,6 +46,11 @@ public class EmployeeController {
 		return service.departments();
 	}
 
+	@GetMapping("/job-titles")
+	public List<String> jobTitles() {
+		return service.jobTitles();
+	}
+
 	@GetMapping("/{id}")
 	public EmployeeResponse get(@PathVariable Long id) {
 		return service.get(id);
@@ -61,6 +67,13 @@ public class EmployeeController {
 	@PutMapping("/{id}")
 	public EmployeeResponse update(@PathVariable Long id, @Valid @RequestBody EmployeeRequest request) {
 		return service.update(id, request);
+	}
+
+	// Ids travel in the body: a URL holding a page of ids can exceed proxy length limits.
+	@DeleteMapping
+	public ResponseEntity<Void> deleteAll(@Valid @RequestBody BulkDeleteRequest request) {
+		service.deleteAll(request.ids());
+		return ResponseEntity.noContent().build();
 	}
 
 	@DeleteMapping("/{id}")

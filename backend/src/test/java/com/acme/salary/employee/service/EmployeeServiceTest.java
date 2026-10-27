@@ -182,6 +182,42 @@ class EmployeeServiceTest {
 	}
 
 	@Test
+	void jobTitlesComeFromRepository() {
+		when(repository.findDistinctJobTitles()).thenReturn(List.of("Account Manager", "Software Engineer"));
+
+		assertThat(service.jobTitles()).containsExactly("Account Manager", "Software Engineer");
+	}
+
+	@Test
+	void bulkDeleteRemovesAllEmployeesWhenEveryIdExists() {
+		when(repository.findExistingIds(List.of(1L, 2L))).thenReturn(List.of(1L, 2L));
+
+		service.deleteAll(List.of(1L, 2L));
+
+		verify(repository).deleteAllByIdInBatch(List.of(1L, 2L));
+	}
+
+	@Test
+	void bulkDeleteDeletesNothingWhenAnyIdIsMissing() {
+		when(repository.findExistingIds(List.of(1L, 99L))).thenReturn(List.of(1L));
+
+		assertThatThrownBy(() -> service.deleteAll(List.of(1L, 99L)))
+				.isInstanceOf(EmployeeNotFoundException.class)
+				.hasMessageContaining("99")
+				.hasMessageNotContaining("1,");
+		verify(repository, never()).deleteAllByIdInBatch(any());
+	}
+
+	@Test
+	void bulkDeleteTreatsRepeatedIdsAsOne() {
+		when(repository.findExistingIds(List.of(1L, 2L))).thenReturn(List.of(1L, 2L));
+
+		service.deleteAll(List.of(1L, 1L, 2L));
+
+		verify(repository).deleteAllByIdInBatch(List.of(1L, 2L));
+	}
+
+	@Test
 	void listMapsPageToResponseWithCurrency() {
 		Page<Employee> page = new PageImpl<>(List.of(employee("asha@acme.com", Country.UK)), PageRequest.of(1, 10), 11);
 		when(repository.search(any(), any(), any(), any(Pageable.class))).thenReturn(page);

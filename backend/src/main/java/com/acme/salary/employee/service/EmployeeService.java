@@ -17,7 +17,11 @@ public interface EmployeeService {
 
 	List<String> departments();
 
+	List<String> jobTitles();
+
 	EmployeeResponse update(Long id, EmployeeRequest request);
 
 	void delete(Long id);
+
+	void deleteAll(List<Long> ids);
 }
