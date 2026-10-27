@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
-import { Country, CountrySalaryStats, JobTitleAverage } from './models';
+import { Country, CountrySalaryStats, DepartmentAverage, JobTitleAverage } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class InsightsService {
@@ -15,5 +15,9 @@ export class InsightsService {
 
   jobTitleAverages(country: Country): Observable<JobTitleAverage[]> {
     return this.http.get<JobTitleAverage[]>(`${this.baseUrl}/${country}/job-titles`);
+  }
+
+  departmentAverages(country: Country): Observable<DepartmentAverage[]> {
+    return this.http.get<DepartmentAverage[]>(`${this.baseUrl}/${country}/departments`);
   }
 }

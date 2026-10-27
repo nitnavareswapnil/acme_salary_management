@@ -1,92 +1,183 @@
 <h1>Salary insights</h1>
 
 <section class="stats">
-  <mat-card appearance="outlined">
-    <mat-card-header>
-      <mat-card-title>Salary by country</mat-card-title>
-      <mat-card-subtitle>Annual gross base salary, in each country's own currency</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      @if (statsLoading()) {
-        <mat-progress-bar mode="indeterminate" />
-      }
+  <mat-expansion-panel expanded>
+    <mat-expansion-panel-header>
+      <mat-panel-title>Salary by country</mat-panel-title>
+      <mat-panel-description>Annual gross base salary, in each country's own currency</mat-panel-description>
+    </mat-expansion-panel-header>
+    @if (statsLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
 
-      @if (statsFailed()) {
-        <div class="state error" role="alert">
-          Could not load salary statistics.
-          <button mat-button class="retry" (click)="loadStats()">Retry</button>
-        </div>
-      } @else if (!statsLoading() && stats().length === 0) {
-        <div class="state">No salary data yet</div>
-      } @else {
-        <table mat-table [dataSource]="stats()">
-          <ng-container matColumnDef="country">
-            <th mat-header-cell *matHeaderCellDef>Country</th>
-            <td mat-cell *matCellDef="let row">{{ countryLabel(row.country) }}</td>
-          </ng-container>
-          <ng-container matColumnDef="currency">
-            <th mat-header-cell *matHeaderCellDef>Currency</th>
-            <td mat-cell *matCellDef="let row">{{ row.currency }}</td>
-          </ng-container>
-          <ng-container matColumnDef="employeeCount">
-            <th mat-header-cell *matHeaderCellDef class="amount">Employees</th>
-            <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
-          </ng-container>
-          <ng-container matColumnDef="minSalary">
-            <th mat-header-cell *matHeaderCellDef class="amount">Minimum</th>
-            <td mat-cell *matCellDef="let row" class="amount">{{ row.minSalary | number: '1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="avgSalary">
-            <th mat-header-cell *matHeaderCellDef class="amount">Average</th>
-            <td mat-cell *matCellDef="let row" class="amount">{{ row.avgSalary | number: '1.2-2' }}</td>
-          </ng-container>
-          <ng-container matColumnDef="maxSalary">
-            <th mat-header-cell *matHeaderCellDef class="amount">Maximum</th>
-            <td mat-cell *matCellDef="let row" class="amount">{{ row.maxSalary | number: '1.2-2' }}</td>
-          </ng-container>
+    @if (statsFailed()) {
+      <div class="state error" role="alert">
+        Could not load salary statistics.
+        <button mat-button class="retry" (click)="loadStats()">Retry</button>
+      </div>
+    } @else if (!statsLoading() && stats().length === 0) {
+      <div class="state">No salary data yet</div>
+    } @else {
+      <div class="with-chart">
+        @if (stats().length > 0) {
+          <div class="chart-block">
+            <h3 class="chart-title">Employees by country</h3>
+            <div class="donut-wrap">
+              <app-chart-canvas
+                [config]="donut()"
+                label="Donut chart of employees by country. The table beside it lists the same figures."
+                [height]="220"
+              />
+              <div class="donut-total">
+                <strong>{{ totalEmployees() | number }}</strong>&ngsp;<span>employees</span>
+              </div>
+            </div>
+            <ul class="legend">
+              @for (item of legend(); track item.label) {
+                <li>
+                  <span class="swatch" [style.background]="item.color"></span>{{ item.label }}
+                  <strong>{{ item.count | number }}</strong> ({{ item.share }}%)
+                </li>
+              }
+            </ul>
+          </div>
+        }
+      <table mat-table [dataSource]="stats()">
+        <ng-container matColumnDef="country">
+          <th mat-header-cell *matHeaderCellDef>Country</th>
+          <td mat-cell *matCellDef="let row">{{ countryLabel(row.country) }}</td>
+        </ng-container>
+        <ng-container matColumnDef="currency">
+          <th mat-header-cell *matHeaderCellDef>Currency</th>
+          <td mat-cell *matCellDef="let row">{{ row.currency }}</td>
+        </ng-container>
+        <ng-container matColumnDef="employeeCount">
+          <th mat-header-cell *matHeaderCellDef class="amount">Employees</th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
+        </ng-container>
+        <ng-container matColumnDef="minSalary">
+          <th mat-header-cell *matHeaderCellDef class="amount">Minimum</th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.minSalary | number: '1.2-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="avgSalary">
+          <th mat-header-cell *matHeaderCellDef class="amount">Average</th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.avgSalary | number: '1.2-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="maxSalary">
+          <th mat-header-cell *matHeaderCellDef class="amount">Maximum</th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.maxSalary | number: '1.2-2' }}</td>
+        </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="statsColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: statsColumns"></tr>
-        </table>
-      }
-    </mat-card-content>
-  </mat-card>
+        <tr mat-header-row *matHeaderRowDef="statsColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: statsColumns"></tr>
+      </table>
+      </div>
+    }
+  </mat-expansion-panel>
 </section>
 
-<section class="titles">
-  <mat-card appearance="outlined">
-    <mat-card-header>
-      <mat-card-title>Average salary by job title</mat-card-title>
-      <mat-card-subtitle>Pick a country to compare what each role is paid there</mat-card-subtitle>
-    </mat-card-header>
-    <mat-card-content>
-      <mat-form-field>
-        <mat-label>Country</mat-label>
-        <mat-select [formControl]="country">
-          @for (code of countries; track code) {
-            <mat-option [value]="code">{{ countryLabel(code) }}</mat-option>
-          }
-        </mat-select>
-      </mat-form-field>
-
-      @if (titlesLoading()) {
-        <mat-progress-bar mode="indeterminate" />
+<div class="country-picker">
+  <mat-form-field>
+    <mat-label>Country</mat-label>
+    <mat-select [formControl]="country">
+      @for (code of countries; track code) {
+        <mat-option [value]="code">{{ countryLabel(code) }}</mat-option>
       }
+    </mat-select>
+  </mat-form-field>
+  <span>Applies to the job title and department sections below</span>
+</div>
 
-      @if (selectedCountry() === null) {
-        <div class="state">Choose a country to see average salary by job title</div>
-      } @else if (titlesFailed()) {
-        <div class="state error" role="alert">
-          Could not load job title averages.
-          <button mat-button class="retry" (click)="retryTitles()">Retry</button>
-        </div>
-      } @else if (!titlesLoading() && titles().length === 0) {
-        <div class="state">No employees in {{ countryLabel(selectedCountry()!) }}</div>
-      } @else {
-        <table mat-table [dataSource]="titles()">
-          <ng-container matColumnDef="jobTitle">
-            <th mat-header-cell *matHeaderCellDef>Job title</th>
-            <td mat-cell *matCellDef="let row">{{ row.jobTitle }}</td>
+<section class="titles">
+  <mat-expansion-panel expanded>
+    <mat-expansion-panel-header>
+      <mat-panel-title>Average salary by job title</mat-panel-title>
+      <mat-panel-description>Uses the country selected above</mat-panel-description>
+    </mat-expansion-panel-header>
+    @if (titlesLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    @if (selectedCountry() === null) {
+      <div class="state">Choose a country to see average salary by job title</div>
+    } @else if (titlesFailed()) {
+      <div class="state error" role="alert">
+        Could not load job title averages.
+        <button mat-button class="retry" (click)="retryTitles()">Retry</button>
+      </div>
+    } @else if (!titlesLoading() && titles().length === 0) {
+      <div class="state">No employees in {{ countryLabel(selectedCountry()!) }}</div>
+    } @else {
+      <div class="with-chart">
+        @if (titles().length > 0) {
+          <div class="chart-block">
+            <h3 class="chart-title">Top-earning roles by average salary{{ currency() ? ' (' + currency() + ')' : '' }}</h3>
+            <app-chart-canvas
+              [config]="topRoles().config"
+              label="Bar chart of the best-paid job titles by average salary. The table beside it lists every job title."
+              [height]="topRoles().height"
+            />
+          </div>
+        }
+      <table mat-table [dataSource]="titles()">
+        <ng-container matColumnDef="jobTitle">
+          <th mat-header-cell *matHeaderCellDef>Job title</th>
+          <td mat-cell *matCellDef="let row">{{ row.jobTitle }}</td>
+        </ng-container>
+        <ng-container matColumnDef="avgSalary">
+          <th mat-header-cell *matHeaderCellDef class="amount">
+            Average salary{{ currency() ? ' (' + currency() + ')' : '' }}
+          </th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.avgSalary | number: '1.2-2' }}</td>
+        </ng-container>
+        <ng-container matColumnDef="employeeCount">
+          <th mat-header-cell *matHeaderCellDef class="amount">Employees</th>
+          <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="titleColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: titleColumns"></tr>
+      </table>
+      </div>
+    }
+  </mat-expansion-panel>
+</section>
+
+<section class="departments">
+  <mat-expansion-panel expanded>
+    <mat-expansion-panel-header>
+      <mat-panel-title>Average salary by department</mat-panel-title>
+      <mat-panel-description>Uses the country selected above</mat-panel-description>
+    </mat-expansion-panel-header>
+    @if (departmentsLoading()) {
+      <mat-progress-bar mode="indeterminate" />
+    }
+
+    @if (selectedCountry() === null) {
+      <div class="state">Choose a country to see average salary by department</div>
+    } @else if (departmentsFailed()) {
+      <div class="state error" role="alert">
+        Could not load department averages.
+        <button mat-button class="retry" (click)="retryDepartments()">Retry</button>
+      </div>
+    } @else if (!departmentsLoading() && departments().length === 0) {
+      <div class="state">No employees in {{ countryLabel(selectedCountry()!) }}</div>
+    } @else {
+      <div class="with-chart">
+        @if (departments().length > 0) {
+          <div class="chart-block">
+            <h3 class="chart-title">Average salary by department{{ currency() ? ' (' + currency() + ')' : '' }}</h3>
+            <app-chart-canvas
+              [config]="departmentChart().config"
+              label="Bar chart of average salary by department. The table beside it lists the same figures."
+              [height]="departmentChart().height"
+            />
+          </div>
+        }
+        <table mat-table [dataSource]="departments()">
+          <ng-container matColumnDef="department">
+            <th mat-header-cell *matHeaderCellDef>Department</th>
+            <td mat-cell *matCellDef="let row">{{ row.department }}</td>
           </ng-container>
           <ng-container matColumnDef="avgSalary">
             <th mat-header-cell *matHeaderCellDef class="amount">
@@ -99,10 +190,10 @@
             <td mat-cell *matCellDef="let row" class="amount">{{ row.employeeCount | number }}</td>
           </ng-container>
 
-          <tr mat-header-row *matHeaderRowDef="titleColumns"></tr>
-          <tr mat-row *matRowDef="let row; columns: titleColumns"></tr>
+          <tr mat-header-row *matHeaderRowDef="departmentColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: departmentColumns"></tr>
         </table>
-      }
-    </mat-card-content>
-  </mat-card>
+      </div>
+    }
+  </mat-expansion-panel>
 </section>

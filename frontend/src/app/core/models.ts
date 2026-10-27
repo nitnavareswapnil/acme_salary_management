@@ -68,3 +68,9 @@ export interface JobTitleAverage {
   avgSalary: number;
   employeeCount: number;
 }
+
+export interface DepartmentAverage {
+  department: string;
+  avgSalary: number;
+  employeeCount: number;
+}

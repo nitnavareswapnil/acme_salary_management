@@ -2,7 +2,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { InsightsService } from './insights.service';
-import { CountrySalaryStats, JobTitleAverage } from './models';
+import { CountrySalaryStats, DepartmentAverage, JobTitleAverage } from './models';
 
 describe('InsightsService', () => {
   let service: InsightsService;
@@ -36,6 +36,18 @@ describe('InsightsService', () => {
     service.jobTitleAverages('UK').subscribe((value) => (result = value));
 
     const request = http.expectOne('http://localhost:8080/api/insights/countries/UK/job-titles');
+    expect(request.request.method).toBe('GET');
+    request.flush(averages);
+
+    expect(result).toEqual(averages);
+  });
+
+  it('loads the average salary per department for one country', () => {
+    const averages: DepartmentAverage[] = [{ department: 'Finance', avgSalary: 61000.5, employeeCount: 40 }];
+    let result: DepartmentAverage[] = [];
+    service.departmentAverages('INDIA').subscribe((value) => (result = value));
+
+    const request = http.expectOne('http://localhost:8080/api/insights/countries/INDIA/departments');
     expect(request.request.method).toBe('GET');
     request.flush(averages);
 

@@ -27,6 +27,14 @@ html {
       text-container-shape: 8px,
     )
   );
+  // Collapsible sections look like the outlined cards: same shape and surface, a border instead of a shadow.
+  @include mat.expansion-overrides(
+    (
+      container-shape: 12px,
+      container-background-color: var(--mat-sys-surface),
+      container-elevation-shadow: none,
+    )
+  );
   @include mat.card-overrides(
     (
       outlined-container-shape: 12px,
@@ -43,6 +51,10 @@ body {
   font: var(--mat-sys-body-medium);
   margin: 0;
   height: 100%;
+}
+
+.mat-expansion-panel {
+  border: 1px solid var(--mat-sys-outline-variant);
 }
 
 // Page headings look the same on every screen.
