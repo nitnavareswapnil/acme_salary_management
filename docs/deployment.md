@@ -62,7 +62,7 @@ You do not create tables or load data by hand: on first start the app runs the F
 
    | Setting | Value |
    |---|---|
-   | Name | `acme-salary-api` (gives `https://acme-salary-api.onrender.com`; see the note below if it is taken) |
+   | Name | `acme-salary-api` (the address is `https://<name>.onrender.com`; the name was already taken for this project, so Render added a suffix: see the note below) |
    | Language | Docker |
    | Branch | `main` |
    | Root Directory | `backend` |
@@ -82,7 +82,7 @@ You do not create tables or load data by hand: on first start the app runs the F
 
    Do not set `PORT`; Render sets it and the app listens on it.
 4. **Create Web Service.** The first build takes several minutes. When the log shows `Started SalaryApplication`,
-   open `https://acme-salary-api.onrender.com/actuator/health`: it should answer `{"status":"UP"}`. Then try
+   open `https://acme-salary-api-xawz.onrender.com/actuator/health`: it should answer `{"status":"UP"}`. Then try
    `/api/insights/countries`: three countries with about 3,300 employees each.
 
 Why the health check path is not `/actuator/health`: that one also queries the database. Render calls the check every
@@ -127,9 +127,9 @@ you list them, which is the intent.
 
 | Check | Expected |
 |---|---|
-| `curl -s https://acme-salary-api.onrender.com/actuator/health` | `{"status":"UP"}` |
-| `curl -si "https://acme-salary-api.onrender.com/api/employees?size=1"` | `200` with `X-Content-Type-Options`, `Cache-Control: no-store` and `Content-Security-Policy` headers |
-| Preflight from the site: `curl -si -X OPTIONS https://acme-salary-api.onrender.com/api/employees -H "Origin: https://acme-salary.vercel.app" -H "Access-Control-Request-Method: GET"` | `200` and `Access-Control-Allow-Origin: https://acme-salary.vercel.app` |
+| `curl -s https://acme-salary-api-xawz.onrender.com/actuator/health` | `{"status":"UP"}` |
+| `curl -si "https://acme-salary-api-xawz.onrender.com/api/employees?size=1"` | `200` with `X-Content-Type-Options`, `Cache-Control: no-store` and `Content-Security-Policy` headers |
+| Preflight from the site: `curl -si -X OPTIONS https://acme-salary-api-xawz.onrender.com/api/employees -H "Origin: https://acme-salary.vercel.app" -H "Access-Control-Request-Method: GET"` | `200` and `Access-Control-Allow-Origin: https://acme-salary.vercel.app` |
 | Same preflight with `-H "Origin: https://evil.example"` | `403` |
 | Vercel site: Employees page | 10,000 employees, filters, paging |
 | Vercel site: Insights page | charts and the three tables |

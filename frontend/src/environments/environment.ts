@@ -1,5 +1,5 @@
-// The production build uses this file (development replaces it, see angular.json). The URL is the Render service
-// named acme-salary-api; if Render assigns a different one, change it here, in vercel.json and in CORS on Render.
+// The production build uses this file (development replaces it, see angular.json). The URL is the Render service's
+// public address (the name acme-salary-api was taken, so Render added a suffix); if it ever changes, change it here, in vercel.json and in CORS on Render.
 export const environment = {
-  apiBaseUrl: 'https://acme-salary-api.onrender.com/api',
+  apiBaseUrl: 'https://acme-salary-api-xawz.onrender.com/api',
 };
