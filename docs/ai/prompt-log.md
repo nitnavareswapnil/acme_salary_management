@@ -1,159 +1,161 @@
 # AI Prompt Log
 
-Format: see `prompt-template.md`.
+Tool: Claude Code, one small step per prompt, test first (failing tests shown, then the code). The standing rules
+(stack, layering, no over-engineering, TDD) live in `CLAUDE.md`; prompts only state what is specific to the step.
+Format: `prompt-template.md`. "Review" is what I checked, changed or rejected.
 
-### 4. Scaffold backend  (commit: chore(backend): scaffold Spring Boot project with PostgreSQL, Flyway)
-**Prompt:** "Read .local/CONTEXT.md, CLAUDE.md and docs/ first, then continue from the next step." (next step: scaffold backend with one smoke test)
-**AI output:** Maven project (Spring Boot 3.5.16, Java 17) with Web, JPA, Validation, Actuator, Flyway, PostgreSQL, Testcontainers; env-based datasource config; one smoke test that boots the context against a real PostgreSQL container.
-**My review:** TODO (author). Points to check: start.spring.io only offers Boot 4.x now, so the parent was pinned to 3.5.x by hand to keep the documented decision; first run failed only because Docker was not running; the Flyway "no migrations" warning is expected until the Employee migration.
-**Result:** `./mvnw test` passes (1 test).
+## Backend
 
-### 5 Employee persistence  (commit: feat(backend): Employee entity, migration, indexes)
-**Prompt:** Plan step 5: `Country` enum with currency, `V1__create_employee.sql` (unique email index; country, job_title, department indexes), Testcontainers `EmployeeRepositoryTest`, then entity and repository.
-**My review:** TODO (author). Points to check: RED was a compile failure (classes did not exist); entity has no setters yet (added when update is built in step 6); `Country` stored as a string so the currency stays derived; the "duplicate key" ERROR line in the test output is the expected rejection.
-**Result:** `./mvnw test` passes (6 tests).
+### 4. Scaffold backend (`chore(backend): scaffold Spring Boot project with PostgreSQL, Flyway`)
+**Prompt:** Scaffold the backend with one smoke test that boots against a real PostgreSQL container.
+**Review:** start.spring.io only offers Boot 4.x, so I pinned 3.5.x by hand to keep ADR 001. The first run failed only because Docker was not running.
+**Result:** 1 test passing.
 
-### 6 Employee service  (commit: feat(backend): EmployeeService CRUD with duplicate-email and not-found handling)
-**Prompt:** Plan step 6: request/response records, `EmployeeNotFoundException`, `DuplicateEmailException`, Mockito `EmployeeServiceTest`, then the service. Deviation: re-run with layer sub-packages (`dto`, `entity`, `exception`, `repository`, `service`) and an `EmployeeService` interface with `EmployeeServiceImpl`.
-**My review:** TODO (author). Points to check: RED was a compile failure; duplicate checks use `existsByEmail` (create) and `existsByEmailAndIdNot` (update) so an employee can keep their own email; update relies on dirty checking inside the transaction instead of `save()`; the DB unique index still backs this up against races; Bean Validation annotations are exercised in the step 7 controller tests; layer sub-packages sit inside the `employee` feature package; the interface has a single implementation, a convention rather than a need.
-**Result:** `./mvnw test` passes (16 tests, 10 new).
+### 5. Employee persistence (`feat(backend): Employee entity, migration, indexes`)
+**Prompt:** `Country` enum with currency, Flyway `V1` (unique email, country/job title/department indexes), Testcontainers repository tests, then entity and repository.
+**Review:** Country is stored as a string, so the currency stays derived. The "duplicate key" ERROR line in the test output is the expected rejection.
+**Result:** 6 tests passing.
 
-### 7 Controller and error handling  (commit: feat(backend): EmployeeController, DTOs, global exception handler)
-**Prompt:** Plan step 7: `GlobalExceptionHandler` (400/404/409, one body shape), `EmployeeController` (GET by id, POST 201, PUT 200, DELETE 204), `@WebMvcTest` slice tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; the handler lives in `common.exception` because it is cross-cutting; POST returns a `Location` header; unknown enum values and bad JSON map to 400 "Malformed request body"; the unique-email race (`DataIntegrityViolationException`) was mapped to 409 in a follow-up prompt, with a generic message so no DB details leak.
-**Result:** `./mvnw test` passes (30 tests, 14 new).
+### 6. Employee service (`feat(backend): EmployeeService CRUD with duplicate-email and not-found handling`)
+**Prompt:** DTO records, not-found and duplicate-email exceptions, Mockito tests, then the service. I asked for a re-run with layer sub-packages and an interface/implementation pair.
+**Review:** Duplicate checks use `existsByEmailAndIdNot` on update, so an employee can keep their own email. Update relies on dirty checking. The unique index still guards against races.
+**Result:** 16 tests passing.
 
-### 8 Filtered, paginated list  (commit: feat(backend): paginated, filtered employee list and departments endpoint)
-**Prompt:** Plan step 8: JPQL search (name/email, country, department) with named parameters, `GET /api/employees` with paging (size capped at 100, sort by name then id), `GET /api/employees/departments`; repository fixtures plus service and controller tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; the search term becomes a lower-case `%term%` pattern in the service (never null, so Postgres never has to type a null string); null country/department mean "no filter"; invalid paging is clamped rather than rejected; `PageResponse` is our own record, not Spring's `PageImpl`; an unknown `country` value returns the standard 400 body (new handler); `%` and `_` typed by the user act as wildcards, left as is.
-**Result:** `./mvnw test` passes (48 tests, 17 new).
+### 7. Controller and error handling (`feat(backend): EmployeeController, DTOs, global exception handler`)
+**Prompt:** One `@ControllerAdvice` (400/404/409, one body shape), the CRUD controller, `@WebMvcTest` tests first.
+**Review:** The handler sits in `common.exception` because it is cross-cutting. POST returns a `Location` header. The unique-email race was mapped to 409 in a follow-up, with a generic message so no database detail leaks.
+**Result:** 30 tests passing.
 
-### 9 Country insights  (commit: feat(backend): salary-by-country insights)
-**Prompt:** Plan step 9: `CountrySalaryStats`, JPQL `GROUP BY` in `EmployeeRepository`, `InsightsService`/`Impl`, `GET /api/insights/countries`; tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; the query returns min/max/sum/count and the service divides (sum / count, 2 dp HALF_UP) because JPQL `AVG` returns a `Double`, which would put floating point into money; a tie case (100.05 / 2 = 50.025 -> 50.03) proves HALF_UP rather than HALF_EVEN; countries with no employees produce no group, so the divisor is never zero; the aggregate query sits in `EmployeeRepository` (as asked) with its row record in `employee.dto`.
-**Result:** `./mvnw test` passes (56 tests, 8 new).
+### 8. Filtered, paginated list (`feat(backend): paginated, filtered employee list and departments endpoint`)
+**Prompt:** JPQL search (name/email, country, department) with named parameters, paging capped at 100, departments endpoint.
+**Review:** The search term becomes a lower-case `%term%` in the service. Null filters mean "no filter". Invalid paging is clamped, not rejected. `%` and `_` typed by a user act as wildcards, which I accepted.
+**Result:** 48 tests passing.
 
-### 10 Job-title insights  (commit: feat(backend): average salary by job title within a country)
-**Prompt:** Plan step 10: `JobTitleAverage`, JPQL `GROUP BY jobTitle` for one country sorted by average descending, service method, `GET /api/insights/countries/{country}/job-titles`; tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; same sum / count approach as step 9 (no `Double`), now shared through one private `average` helper; `ORDER BY SUM / COUNT DESC` sorts on the exact average in the database, job title breaks ties; unknown country returns 400 through the existing type-mismatch handler, no new error code; the repository test uses data where sort-by-average differs from alphabetical and from headcount order.
-**Result:** `./mvnw test` passes (63 tests, 7 new).
+### 9. Country insights (`feat(backend): salary-by-country insights`)
+**Prompt:** JPQL `GROUP BY` per country, service, `GET /api/insights/countries`.
+**Review:** JPQL `AVG` returns a `Double`, which would put floating point into money. The query returns sum and count and the service divides (2 dp, HALF_UP). A tie case (100.05 / 2 = 50.03) proves HALF_UP.
+**Result:** 56 tests passing.
 
-### 11 Data generator  (commit: feat(backend): deterministic employee data generator)
-**Prompt:** Plan step 11: `EmployeeDataGenerator` with fixed-seed `Random`, name/department/job-title pools, country-based salary ranges, unique emails, US/INDIA/UK only; unit tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; a new `Random(SEED)` per call makes output identical on every fresh database; countries are listed explicitly, not `Country.values()`, so a future country cannot change the seed data; salary is integer maths (baseline x job-title level x +/-15%), no floating point; the running index in the email guarantees uniqueness even when names repeat; `seed` stays flat because it has no controller, service or DTO layers.
-**Result:** `./mvnw test` passes (70 tests, 7 new).
+### 10. Job-title insights (`feat(backend): average salary by job title within a country`)
+**Prompt:** Average salary per job title for one country, highest first.
+**Review:** Same sum/count approach. The database sorts on the exact average. The repository test uses data where average order differs from alphabetical and from headcount order.
+**Result:** 63 tests passing.
 
-### 12 Seeder  (commit: feat(backend): seed 10,000 employees on first startup)
-**Prompt:** Plan step 12: `EmployeeSeeder` `CommandLineRunner`, skip when the table has data, `JdbcTemplate.batchUpdate`, log elapsed time; Testcontainers tests first.
-**My review:** TODO (author). Points to check: RED was a compile failure; the whole seed runs in one `@Transactional` so a failure leaves the table empty and the next start retries (a half-filled table would look "already seeded"); emptiness check is `EXISTS`, not `COUNT`; the `@SpringBootTest` contexts now seed on startup, so each seeder test truncates first; a fingerprint test proves two fresh databases get identical data; seeding took about 75 ms for 10,000 rows locally (logged, not asserted, to keep the test deterministic).
-**Result:** `./mvnw test` passes (74 tests, 4 new).
+### 11. Data generator (`feat(backend): deterministic employee data generator`)
+**Prompt:** Fixed-seed generator, name/department/job-title pools, salary ranges per country, unique emails, US/India/UK only.
+**Review:** A new `Random(SEED)` per call gives identical data on every fresh database. Countries are listed explicitly so a future enum value cannot change the seed. Salary uses integer maths.
+**Result:** 70 tests passing.
 
-### Backend hardening  (commit: feat(backend): CORS configuration and health endpoint)
-**Prompt:** Final backend audit: CORS for the Angular origin, a health endpoint, a full `./mvnw clean test`, and a check for anything missed.
-**My review:** TODO (author). Points to check: allowed origin comes from `CORS_ALLOWED_ORIGINS` (default `http://localhost:4200`) so deployment needs no code change; only `/actuator/health` is exposed; the health test was a characterization test (Actuator already on the classpath) so it did not go RED; I also booted the real app against PostgreSQL and called every endpoint by hand. Audit findings left open: (1) emails differing only in case are accepted as different (`AARAV.BOSE766@ACME.COM` vs `aarav.bose766@acme.com` both succeed); (2) 405 and unexpected 500 responses use Spring Boot's default body, not the standard `ErrorResponse`.
-**Result:** `./mvnw clean test` passes (80 tests, 6 new). Real run: startup 1.7 s, seeding 113 ms, list page 19 ms, country insights 5 ms.
+### 12. Seeder (`feat(backend): seed 10,000 employees on first startup`)
+**Prompt:** `CommandLineRunner`, skip when the table has data, JDBC batch insert, log the elapsed time.
+**Review:** The whole seed runs in one transaction, so a failure leaves the table empty and the next start retries. The emptiness check is `EXISTS`, not `COUNT`. A fingerprint test proves two fresh databases get identical data. Seeding took about 75 ms locally (logged, not asserted).
+**Result:** 74 tests passing.
 
-### Audit fixes: email case and error bodies  (commit: fix(backend): lower-case emails and standard error body for all failures)
-**Prompt:** Fix the two open findings from the backend audit: emails differing only by case were accepted, and 405/500 responses did not use the standard error body.
-**My review:** TODO (author). Points to check: emails are trimmed and lower-cased (`Locale.ROOT`) in the service, so the existing case-sensitive unique index now also blocks `ASHA@x.com` vs `asha@x.com`, no new migration; the exception handler now extends `ResponseEntityExceptionHandler`, which keeps each framework error on its correct status (405, 415, 404...) while one `handleExceptionInternal` renders them all as `ErrorResponse`, instead of a catch-all that would have turned them into 500s; the two handlers that overlapped with the base class became overrides (declaring them twice makes Spring fail with an ambiguous mapping); unexpected exceptions are logged and returned as a generic "Unexpected error" so internals never reach the client.
-**Result:** `./mvnw clean test` passes (89 tests, 9 new; the existing handler tests stayed green through the restructure).
+### Backend hardening and audit fixes (`feat(backend): CORS configuration and health endpoint`, `fix(backend): lower-case emails and standard error body for all failures`)
+**Prompt:** Final backend audit: CORS, health endpoint, full clean test run, look for anything missed. Then fix the two findings.
+**Review:** I booted the real app and called every endpoint by hand. Two findings: emails differing only in case were accepted, and 405/500 responses used Spring's default body. Fixes: emails are trimmed and lower-cased in the service (the existing unique index now blocks case variants, no migration); the handler extends `ResponseEntityExceptionHandler`, so framework errors keep the right status but share one error body; unexpected exceptions return a generic message.
+**Result:** 89 tests passing. Real run: startup 1.7 s, seeding 113 ms, list page 19 ms, country insights 5 ms.
 
-### 13 Frontend scaffold  (commit: chore(frontend): scaffold Angular app with Material, routing, environment config)
-**Prompt:** Plan step 13: Angular standalone app in `frontend/` (strict, routing, Material), `environment` files with `apiBaseUrl`, placeholder routes, `npm test` and `npm run build` green; specs first.
-**My review:** TODO (author). Points to check: Angular 21, not the newest 22, because 22 needs Node 22.22+ and this machine has Node 20.20 (21 supports Node 20.19+); npm 10.8 crashed resolving `jsdom`'s optional `canvas` peer, so dependencies were installed with `npx npm@11` (nothing changed globally, the lockfile is normal); the CLI's default test runner is now Vitest + jsdom, so no browser is needed; routes lazy-load their components; one `EmployeeForm` serves both `/employees/new` and `/employees/:id/edit`; both environment files point at `http://localhost:8080/api` for now, production value is set in the deployment step.
-**Result:** `npm test` passes (8 tests), `npm run build` succeeds (286 kB initial, 73 kB transferred).
+## Frontend
 
-### 14 Employee directory  (commit: feat(frontend): employee directory with server-side paging, search and filters)
-**Prompt:** Plan step 14: TypeScript models, `EmployeeService` (list with query params, departments), `EmployeeList` with Material table, 300 ms debounced search, country and department filters, server-side paginator, empty and error states; specs first.
-**My review:** TODO (author). Points to check: RED was a compile failure; one `query` signal is the single source of truth and every filter change resets the page to 0 in the same update, so a filter change never sends two requests; `switchMap` cancels an in-flight request so a slow old response cannot overwrite a newer one; debounce is tested with fake timers (299 ms sends nothing, 300 ms sends one); blank filters are omitted from the URL; a failed departments call only empties the dropdown, a failed list call shows an error with Retry; the typed `countryLabel()` method exists because mat-table cell rows are untyped under strict templates; salaries are JSON numbers (fine for 2 dp display, no arithmetic is done on them).
-Tested the UI on broswer, for the start looks okay. We will enhance it once the working skeleton is done.
-**Result:** `npm test` passes (24 tests, 16 new), `npm run build` succeeds.
+### 13. Scaffold (`chore(frontend): scaffold Angular app with Material, routing, environment config`)
+**Prompt:** Angular standalone app with routing, Material and environment files.
+**Review:** Angular 21, not 22, because 22 needs Node 22.22+ and this machine has Node 20.20. npm 10.8 crashed on `jsdom`'s optional `canvas`, so I installed with `npx npm@11` (lockfile is normal). Routes lazy-load. One form component serves add and edit.
+**Result:** 8 specs passing.
 
-### 15 Add, edit, delete employees  (commit: feat(frontend): employee form and delete with confirmation)
-**Prompt:** Plan step 15: reactive `EmployeeForm` for add and edit with the backend's validation rules and server error display, delete with a Material confirmation dialog and list refresh; specs first.
-**My review:** TODO (author). Points to check: RED was a compile failure; one form component serves both routes and reads the id from the route snapshot; client validators mirror `EmployeeRequest` (required, email, max lengths, salary > 0 with at most 2 decimals) so most mistakes never reach the server; a 400 puts each field message on its control, a 409 is shown on the email field and above the form, anything else gets a generic message; server errors clear when the user edits the field; the confirm dialog is a small reusable component that closes with true/false and is stubbed in the list spec; after deleting the only row of a later page the list steps back one page instead of showing an empty page; delete failures show an alert and leave the row in place. Need to add UI side validations, dropdowns for form fields. 
-**Result:** `npm test` passes (52 tests, 28 new), `npm run build` succeeds.
+### 14. Employee directory (`feat(frontend): employee directory with server-side paging, search and filters`)
+**Prompt:** Service, Material table, 300 ms debounced search, country/department filters, server-side paginator, empty and error states.
+**Review:** One `query` signal is the single source of truth, and every filter change resets to page 0 in the same update, so it never sends two requests. `switchMap` stops a slow old response overwriting a newer one. A failed departments call only empties the dropdown. I tried it in the browser; it looked fine for a skeleton and I planned to polish later.
+**Result:** 24 specs passing.
 
-### 15b Form refinements  (commit: feat(frontend): department suggestions and stricter form validation)
-**Prompt:** Refine the employee form: department as a dropdown filled from the departments endpoint, job title consistency, double-check validators, make sure 400/409 errors land on the right controls; update specs.
-**My review:** TODO (author). Points to check: department is an autocomplete, not a strict select, so HR can still introduce a new department while typos are discouraged; it reuses the existing `EmployeeService.departments()`; if that call fails the field works as plain text; whitespace-only text is rejected client-side (Angular's `required` accepts "   ", the backend's `@NotBlank` does not) and values are trimmed before sending; email uses Angular's own validator on purpose, it is as lenient as the backend's `@Email`, and uniqueness can only be decided by the server (409); job title stays free text because the backend has no job-title list (a `GET /api/employees/job-titles` would be the follow-up); a 400 field error with no matching input is shown in the banner instead of being lost; the 13-integer-digit salary limit is tested at its boundary.
-**Result:** `npm test` passes (62 tests, 10 new), `npm run build` succeeds.
+### 15. Add, edit, delete (`feat(frontend): employee form and delete with confirmation`)
+**Prompt:** Reactive form for add and edit with the backend's rules, delete behind a confirmation dialog.
+**Review:** Client validators mirror the backend so most mistakes never reach the server. A 400 puts messages on the fields, a 409 on the email field. Deleting the only row of a later page steps back one page. I noted that dropdowns were still needed, which became 15b and 15c.
+**Result:** 52 specs passing.
 
-### 15c Strict department selection  (commit: feat(frontend): department as a strict dropdown)
-**Prompt:** Change the department field from autocomplete to a strict Material select filled from `EmployeeService.departments()`, still required; update specs.
-**My review:** TODO (author). Points to check: this reverses 15b's autocomplete on purpose, department values now come only from the list, which stops typos and near-duplicates ("Engineering" vs "Enginering") but means a brand-new department cannot be created from the UI (it would need a seeded or database-side change); if the departments call fails the field shows an explicit message, because a required select with no options would otherwise silently block Save; in edit mode a failed list does not stop saving the employee's current department; the free-text trim/`@NotBlank` handling now applies to name and job title only.
-Departments and Job Roles are not linked. We need to link it so correct data will get added. This task is for later as Backend and DB involved. 
-**Result:** `npm test` passes (63 tests), `npm run build` succeeds.
+### 15b / 15c. Form refinements (`feat(frontend): department suggestions and stricter form validation`, `feat(frontend): department as a strict dropdown`)
+**Prompt:** Department as a dropdown from the departments endpoint; stricter validation.
+**Review:** I first built an autocomplete, then reversed it into a strict select to stop typos like "Enginering". Cost: a new department cannot be added from the UI. Whitespace-only text is rejected client-side (Angular's `required` accepts it, the backend's `@NotBlank` does not). Open point I raised: departments and job titles are not linked, so inconsistent pairs are possible; it needs backend and database work, so it is a later item.
+**Result:** 63 specs passing.
 
-### 16 Insights page  (commit: feat(frontend): salary insights page)
-**Prompt:** Plan step 16: `InsightsService`, an insights page with the per-country statistics table, a country selector for average salary by job title, loading, empty and error states; specs first.
-**My review:** TODO (author). Points to check: kept the repo's naming (`insights-page.ts`, class `InsightsPage`, already routed) instead of `insights.component.ts`; the statistics and job-title sections load, fail and retry independently, so one failing does not hide the other; `switchMap` cancels the previous country's request (tested with `request.cancelled`); the currency label in the job-title header comes from the statistics response instead of a second country-to-currency map, and is simply omitted if the statistics failed; the first version showed a stale currency after switching country because a `computed` read a form control's plain value, which is not a signal, so the test caught it and the selected country is now mirrored in a signal; the selector lists all three supported countries, a country without employees shows an empty state; no country is pre-selected.
-**Result:** `npm test` passes (76 tests, 13 new), `npm run build` succeeds.
+### 16. Insights page (`feat(frontend): salary insights page`)
+**Prompt:** Country statistics table, job-title averages for a chosen country, loading, empty and error states.
+**Review:** Sections load, fail and retry independently. The currency label comes from the statistics response, not a second country-to-currency table. A test caught a stale currency after switching country: a `computed` read a plain form value, which is not a signal.
+**Result:** 76 specs passing.
 
-### P1 Job titles endpoint and bulk delete  (commit: feat(backend): job titles list and bulk delete)
-**Prompt:** Plan step P1: `GET /api/employees/job-titles`, bulk `DELETE /api/employees` by ids in one transaction (404 if any id is missing), with service, controller, repository and full-stack integration tests; tests first.
-**My review:** TODO (author). Points to check: ids travel in the request body (`{"ids": [...]}`), not the URL, so a page of ids cannot hit URL-length limits, at the cost of a DELETE with a body that some proxies drop; capped at 100 ids (the list's maximum page size) and must be non-empty, validated like every other input; the service checks all ids first and only then issues one `DELETE ... WHERE id IN` inside the transaction, so a missing id leaves every row untouched, which the Testcontainers test proves through the HTTP layer; because of that pre-check the rollback is not what protects the data, the transaction covers the check and delete together; a concurrent delete between the check and the delete is accepted (HR is a single user); repeated ids count once; the 404 message lists the missing ids; job titles are distinct and alphabetical, read-only, and are the source for the job-title autocomplete later.
-**Result:** `./mvnw test` passes (106 tests, 17 new).
+## Polish phase
 
-### P2 Salary range filter and department averages  (commit: feat(backend): salary range filter and department averages)
-**Prompt:** Plan step P2: `minSalary`/`maxSalary` on the employee list (400 without a country), a JPQL `GROUP BY` average salary per department for one country exposed as an insights endpoint; unit and integration tests first.
-**My review:** TODO (author). Points to check: the rule "bounds need a country" lives in the service (business rule, thin controller) and is rendered as 400 in the standard error body through a new `InvalidFilterException`, because a range across USD, INR and GBP has no meaning; I added one rule beyond the task, `minSalary > maxSalary` is also 400 instead of silently returning an empty page; both bounds are inclusive and optional on their own, bound as named parameters like the other filters (null `BigDecimal` parameters work on PostgreSQL, proven by the Testcontainers tests); a non-numeric bound is 400 through the existing type-mismatch handler; `list` and `search` gained two parameters, so existing tests were adapted mechanically; the department endpoint is `GET /api/insights/countries/{country}/departments`, mirrors the job-title one (SUM and COUNT in JPQL, average divided in the service with 2 dp HALF_UP, highest average first, department as tie-break) and is an average, never a total, because payroll totals are out of scope.
-**Result:** `./mvnw test` passes (126 tests, 20 new).
+### P1. Job titles and bulk delete (`feat(backend): job titles list and bulk delete`)
+**Prompt:** `GET /api/employees/job-titles` and bulk `DELETE` by ids in one transaction.
+**Review:** Ids travel in the body (no URL length limit), capped at 100. All ids are checked first and then one `DELETE ... WHERE id IN` runs, so a missing id leaves every row untouched, which an HTTP-level Testcontainers test proves.
+**Result:** 106 tests passing.
 
-### P3 Job title autocomplete and two-card form  (commit: feat(frontend): job title autocomplete and two-column form)
-**Prompt:** Plan step P3: job title becomes a Material autocomplete fed by `GET /api/employees/job-titles` and filtered as the user types; the form is regrouped into two responsive `mat-card`s; specs first.
-**My review:** TODO (author). Points to check: the autocomplete is a suggestion list, not a strict select like department, so a new title can still be typed (a strict list would block adding the first employee in a new role); suggestions are filtered in the browser (case-insensitive "contains", trimmed) from one fetch, since the distinct-title list is small and this avoids a request per keystroke; a failed titles request is deliberately silent because the field keeps working as plain text; layout is one `<form>` around two cards (Personal information: name, email, country; Role and compensation: department, job title, salary) so validation, submit and the actions stay single, one column on phones and two from 720px; country sits with personal information as a location and its currency hint stays on the salary field; the grid breakpoint cannot be tested in jsdom, so the tests check card grouping and structure, not pixels; `MatCardModule` and `MatAutocompleteModule` come with the existing Material package, no new dependency.
-**Result:** `npm test` passes (89 tests, 13 new), `npm run build` succeeds.
+### P2. Salary range filter and department averages (`feat(backend): salary range filter and department averages`)
+**Prompt:** `minSalary`/`maxSalary` on the list (400 without a country), average salary per department.
+**Review:** A range across USD, INR and GBP means nothing, so the rule lives in the service. I added one rule beyond the task: min above max is a 400 rather than an empty page. Department figures are averages, never totals (payroll totals are out of scope).
+**Result:** 126 tests passing.
 
-### P4 Row selection, bulk delete and salary range  (commit: feat(frontend): bulk delete and salary range filter in the employee list)
-**Prompt:** Plan step P4: checkbox column with select-all, a contextual bar with the count and a Bulk delete button behind a confirmation dialog, min and max salary filters wired to the backend parameters; specs first.
-**My review:** TODO (author). Points to check: selection is per page and is cleared whenever the list is requested again (page, filters, retry, after a delete), so "N selected" can never include rows the user cannot see; the header checkbox is checked, indeterminate or empty from that state; bulk delete is one `DELETE /api/employees` with `{"ids": [...]}` and the confirmation says how many will go; on 404 (someone else already removed a row) nothing was deleted, so the list is refreshed with an explanation, on other errors the selection is kept for a retry; deleting every row of a later page steps back one page, generalising the single-delete rule; the salary inputs are disabled until a country is chosen because the backend rejects a range without one, and any country change clears the range because 40,000 INR and 40,000 GBP are different filters; a range with minimum above maximum or a negative value shows a message and sends no request instead of causing a 400 and a misleading "could not load"; inputs are debounced 300 ms like search; a `0` bound is sent (the service tests `!= null`, not truthiness). Also fixed two test weaknesses found on the way: the shared dialog stub's `calls[0]` only worked when its test ran first, now `lastCall`; the row-contents test skips the new checkbox cell.
-**Result:** `npm test` passes (114 tests, 25 new), `npm run build` succeeds.
+### P3. Job title autocomplete and two-card form (`feat(frontend): job title autocomplete and two-column form`)
+**Prompt:** Job title autocomplete, form regrouped into two cards.
+**Review:** Unlike department, job title stays a suggestion list, so a new role can still be typed. Suggestions are filtered in the browser from one fetch. Layout breakpoints cannot be tested in jsdom, so specs check structure.
+**Result:** 89 specs passing.
 
-### P4b Total record count on the employee list  (commit: feat(frontend): show total employee count above the list)
-**Prompt:** Reviewer observation after P4: the list should show how many records exist at the top, and the count must reflect the active filters.
-**My review:** TODO (author). Points to check: the number is the backend's `totalElements`, which already honours search, country, department and salary range, so no extra request is made; with no filter it reads "10,000 employees", with any filter "3,314 employees match the filters" (singular forms handled), so a filtered count is never mistaken for the whole table; it stays hidden until the first page has arrived (no flash of "0") and while the list is in an error state; it sits left in the toolbar with the Add button pushed right; the unfiltered grand total is not shown next to a filtered count because that would need a second request, a deliberate omission. A test of mine leaked open requests and, through `http.verify()`, broke the rest of the file (44 failures from one cause); fixed by finishing the requests inside that test.
-**Follow-up (same entry):** moved the count out of the toolbar into its own `.summary` row below the filters and gave it a tinted chip with the number in bold, because the author wants it prominent and the row will also hold the future Export button at its right end; the row is only rendered while the count is shown, so no empty gap or speculative placeholder exists today. I wrote this follow-up's two specs and the change together, so no separate RED run was shown for it.
-**Result:** `npm test` passes (124 tests, 10 new), `npm run build` succeeds.
+### P4. Row selection, bulk delete, salary range (`feat(frontend): bulk delete and salary range filter in the employee list`)
+**Prompt:** Checkbox column, bulk bar with confirmation, min/max salary filters.
+**Review:** Selection is per page and cleared on every reload, so "N selected" never includes rows the user cannot see. Salary inputs stay disabled until a country is chosen, and any country change clears them (40,000 INR is not 40,000 GBP). A `0` bound is sent. I also fixed two weak test patterns found on the way.
+**Result:** 114 specs passing.
+**Observation I raised:** with Country USA and a huge minimum the list still showed everyone. Cause: my running backend predated the new code. Restarting it fixed it, and the lesson is to restart after backend changes.
 
-### P5 Theme, typography and clickable brand  (commit: feat(frontend): enterprise theme and brand link to the employee list)
-**Prompt:** Plan step P5: custom Material palette and typography, consistent card and button styling, the toolbar title as a `routerLink` to `/employees`; specs for the navigation first, clean build for the theme.
-**My review:** TODO (author). Points to check: the palette uses Material's built-in blue (primary) and cyan (tertiary) palettes rather than a hand-made tonal palette, which is safer than inventing 13 tones by hand but the primary is a fairly vivid blue (`#343dff`), so a custom palette from the Angular Material theme schematic would be the next step if a more muted corporate colour is wanted; typography is Inter with Roboto and system fonts as fallbacks, loaded from Google Fonts like Roboto already was (no npm dependency; offline it falls back); one shape language is set once through Material's token mixins (8px buttons, 12px outlined cards), and the Sass build would have failed on a wrong token name; cards are outlined everywhere, which meant changing the two insights cards (they were the default elevated style while the form used outlined), so no screen mixes shadows and borders; page background is a faint grey with white cards, headings share one style, content is capped at 1280px and centred; the brand is a real `<a routerLink>` outside the nav (keyboard focusable, with a visible focus outline); the page title in `index.html` was still "Frontend", now "ACME Salary Platform"; pixels and colours are not verifiable in jsdom, so only the link, its target and the click-to-navigate behaviour are tested, the theme is verified by the build and by checking the values in the built CSS.
-**Result:** `npm test` passes (126 tests, 2 new), `npm run build` succeeds.
+### P4b. Total count (`feat(frontend): show total employee count above the list`)
+**Prompt:** Show how many records exist and keep it correct under filters.
+**Review:** It uses the backend's `totalElements`, so no extra request. It reads "10,000 employees" unfiltered and "3,314 employees match the filters" when filtered, and stays hidden until the first page arrives. On my request it sits in its own highlighted row below the filters, where the Export button will go later. One test of mine leaked open requests and broke 44 others; fixed.
+**Result:** 124 specs passing.
 
-### P6 Insights charts  (commit: feat(frontend): insights charts with table alternatives)
-**Prompt:** Plan step P6: add a charting library (approved), then a headcount donut, a top-earning roles chart and an average-salary-by-department chart, keeping the existing tables as the accessible alternative; specs first.
-**My review:** TODO (author). Points to check: library choice, `chart.js` 4.6.1 used directly through a small `ChartCanvas` wrapper, because `ng2-charts` 11 requires Angular 22 and this app is on 21; only the controllers, elements, scales and tooltip the two chart types need are registered, and it lands in the lazy insights chunk only (initial bundle unchanged at 390.81 kB, insights chunk about 15 kB to 179 kB raw, 54 kB gzip); the charts are built by pure functions (`donutConfig`, `barConfig`) and drawn through an injection token (`CHART_FACTORY`), so specs assert the exact data, colours and labels without a canvas (jsdom has none); chart choices follow the dataviz rules: the donut has three parts of a whole so it is acceptable, each country keeps a fixed colour (blue, orange, aqua; validated all-pairs for colour-blindness, aqua is below 3:1 contrast, which the legend with counts and the table cover), a legend with counts and shares replaces Chart.js's, the total sits in the hole; bars are single-series in one hue, 20px thick with a rounded tip, values at the tip instead of axis and gridlines; chart colours are fixed hex values mirroring the theme tokens because a canvas cannot read the theme's CSS variables (the app is light-only); every chart is an `img` with a label that points to its table, and the tables are unchanged, so the charts add information without being the only way to read it; the page now loads job titles and departments through one shared `load()` helper, independently, with their own loading, empty, error and retry states; the department card follows the country chosen in the job-title card. I also looked at the real page in headless Chrome against a fresh backend: it drew all three charts with no console errors, and that is how a defect the specs could not see was found (the longest bar's value was cut off at the canvas edge), fixed with a fixed right margin and a spec for it. Not done: dark mode, hover tooltips were not exercised by hand, and the percent shares are rounded individually so they can sum to 99 or 101.
-**Result:** `npm test` passes (159 tests, 33 new), `npm run build` succeeds.
+### P5. Theme and brand link (`feat(frontend): enterprise theme and brand link to the employee list`)
+**Prompt:** Material theme, typography, consistent cards and buttons, brand links to the list.
+**Review:** I used Material's built-in blue and cyan palettes rather than inventing tones by hand; the blue is vivid, and a custom palette is the next step if I want it more muted. Cards are outlined everywhere. The brand is a real keyboard-focusable link. Colours cannot be tested in jsdom.
+**Result:** 126 specs passing.
 
-### P6b Collapsible insights sections  (commit: feat(frontend): collapsible insights sections)
-**Prompt:** Reviewer enhancement after P6: add a collapse/expand arrow to the Insights sections to improve the UX ("two tabs", ambiguous because the page has three sections).
-**My review:** TODO (author). Points to check: the request said "two tabs" but the page has three sections (country statistics, job titles, departments); I made all three collapsible with the same control because a page that mixes collapsible and fixed sections looks inconsistent, restricting it to two is a one-line change per section; I used Material's expansion panel (arrow indicator, `aria-expanded`, Enter/Space, no new dependency) instead of a hand-made toggle, styled by token overrides and a hairline border to match the outlined cards, so the three sections still look like one family; all start expanded and collapse independently (not an accordion), collapsing keeps the loaded data and makes no new request; the country selector used to live inside the job-title card and also drives the department card, so collapsing that card would have hidden the control for another section: it now has its own row above both, with a note saying what it applies to (a spec guards that it is never inside a panel); the subtitles of the two dependent sections now say "Uses the country selected above"; checked in headless Chrome with two sections collapsed: arrows flip, the layout holds, no console errors. Not checked: keyboard use by hand (Material provides it, the spec only asserts role and tabindex), the open or closed state is not remembered across visits.
-**Result:** `npm test` passes (166 tests, 7 new), `npm run build` succeeds.
+### P5b. Grid styling (`feat(frontend): light-shade themed employee grid`)
+**Prompt:** Light shades from the theme, easier to use.
+**Review:** Shades come from the theme's own container token, so a palette change restyles the grid. Header, zebra rows, hover, and ticked rows with an accent bar. I checked a screenshot with rows ticked. Not done: sticky header, the same styling on the insights tables.
+**Result:** 185 specs passing.
 
-### P7 Job title comparison across countries  (commit: feat(frontend): compare a job title across countries)
-**Prompt:** Plan step P7: a section where the user picks a job title and sees its average salary in every supported country side by side, each in its own currency and clearly labelled, with loading, empty and error states; service and component specs first.
-**My review:** TODO (author). Points to check: no backend change, the comparison reuses the existing per-country job-title endpoint (three small requests, picking the exact title from each answer), so the database still does the grouping; the alternative is one dedicated `GET /api/insights/...?jobTitle=` endpoint, which would be one request and cleaner, at the price of backend work that was not in the task, say if you prefer it; any one country failing fails the whole comparison with a Retry (partial results would invite comparing three countries when only two loaded); a country with nobody in the role still gets its card ("No employees in this role") instead of silently disappearing; amounts are shown with the ISO code ("INR 1,288,747.05"), not a symbol, because "$" alone is ambiguous, and with the same en-US digit grouping as every table on the page rather than lakh grouping for India, so numbers look the same everywhere; the currency code comes from the statistics response (no second country-to-currency table in the frontend), so if the statistics failed the amount is shown without a code rather than guessing; cards stay in country order and there is no chart and no ranking on purpose, because bars or an ordering on one scale would compare USD, INR and GBP as if they were the same unit, and a note says the amounts are not converted; job title options come from the existing `GET /api/employees/job-titles`, a failure shows an explicit hint; switching title cancels the previous in-flight comparison (spec checks `cancelled`); the section has its own selector (a job title), so it does not depend on the country selector above and is collapsible like the other sections. Looked at the real page in headless Chrome: that found the amount right-aligned inside the cards because the page-wide `.amount` rule for table cells leaked in (CSS-only, fixed and re-checked, not unit-testable). Not done: partial results, remembering the chosen title, a dedicated backend endpoint.
-**Result:** `npm test` passes (181 tests, 15 new), `npm run build` succeeds.
+### P6. Insights charts (`feat(frontend): insights charts with table alternatives`)
+**Prompt:** Headcount donut, top roles chart, department chart, tables kept as text alternatives. I approved a charting dependency.
+**Review:** `chart.js` 4.6.1 directly, because `ng2-charts` 11 needs Angular 22. Only the parts used are registered, and they land in the lazy insights chunk. Chart configs are pure functions, so specs check data and colours without a canvas. Each country keeps one fixed colour (checked for colour-blindness), with a legend showing counts. Looking at the real page found a clipped value on the longest bar; fixed with a margin and a spec. Not done: dark mode.
+**Result:** 159 specs passing.
 
-### P5b Employee grid styling  (commit: feat(frontend): light-shade themed employee grid)
-**Prompt:** Reviewer enhancement after P5: make the employee grid use the theme in light shades and be easier to use.
-**My review:** TODO (author). Points to check: the shades come from the theme's own `primary-container` token mixed with transparency (`color-mix`), so a palette change later restyles the grid with no edits: header row in the light container shade with bold text, a faint stripe on every second row, a stronger shade on hover, the strongest plus a 4px accent bar on the left for ticked rows (the bar is subtle; the shade alone made a ticked row hard to tell from a striped one in the screenshot); table and paginator now sit in one outlined, rounded container that scrolls sideways on narrow screens instead of breaking the page; secondary text (email, currency) is muted so names and numbers lead, names are medium weight, salary digits are tabular so the column lines up, Delete is red and Edit stays primary; empty and error states live inside the same container. Behaviour that can be tested is tested (ticked rows get a `selected` class, grid container holds table and paginator, states inside it); the colours themselves cannot be checked in jsdom, so I looked at the real grid in headless Chrome with two rows ticked and the pointer on another row. Not done: sticky header (it would need an inner scroll area and fights window scrolling), the same styling for the insights tables.
-**Result:** `npm test` passes (185 tests, 4 new), `npm run build` succeeds.
+### P6b. Collapsible insights sections (`feat(frontend): collapsible insights sections`)
+**Prompt:** Add a collapse/expand arrow ("two tabs").
+**Review:** The page has three sections, so I made all three collapsible for consistency. I used Material's expansion panel, with no new dependency. The country selector moved to its own row so collapsing one card never hides a control another section uses.
+**Result:** 166 specs passing.
 
-### P8 Hardening and deployment configuration  (commit: feat: production hardening, Dockerfile and deployment guide)
-**Prompt:** Plan step P8 (old step 17): run both test suites and production builds first; backend security headers, request logging, env-var configuration, multi-stage Dockerfile; frontend production `apiBaseUrl`, Netlify routing and headers; guide for Neon, Render and Netlify with the free-tier limits and sleep behaviour.
-**My review:** TODO (author). Points to check: pre-check was green before any change (backend 126 tests, frontend 185, production build clean); `clean` was not used on the backend so the classes of a running local backend were not deleted; two plain servlet filters instead of Spring Security (there is no login, so it would add weight only): security headers on every response including errors (nosniff, frame deny, no referrer, HSTS, and for `/api/` a CSP that forbids loading anything plus `no-store` so salary data is not cached), and one log line per request with method, path, status and time, never the query string (it holds search terms and salary bounds) or the body, health checks at DEBUG; configuration was already environment-driven, only `PORT` was added because Render injects it; the Dockerfile builds in a Maven stage and runs on a JRE as a non-root user, I built it and ran it against the local database: health, headers, CORS (allowed origin 200, another origin 403), log lines and `/actuator/env` 404 all checked; the Alpine JRE image is not published for ARM (this Mac) so the Ubuntu-based one is used, which builds on both; the task said `_headers` should hold the routing rewrite, but rewrites belong in `_redirects`, so both files exist; the first draft of the CSP broke the app: Angular's production build puts an inline `onload` on the stylesheet link and the policy blocks it, which left the global stylesheet unapplied (panel outlines vanished in the screenshot), fixed by turning off critical-CSS inlining for production, then re-checked in headless Chrome against the real build with the real policy: no violations, charts, overlays and forms work; Render's health check hits its path every few seconds and the default `/actuator/health` queries the database, which would keep Neon awake all day and use its free compute hours in about 17 days, so the liveness probe (no database) is enabled and is the path to use on Render (test written first, 404 before); `environment.ts` is the production file in this project's layout (the development file replaces it for `ng serve` and for tests), so the spec only guards the development value, the production value was checked in the built bundle (present, and no `localhost:8080`); `netlify.toml` was not requested, added so the dashboard needs no manual entries; free-tier numbers come from the providers' pages read on 2026-10-27 and are listed with sources, and two things the pages do not say are marked as such in the guide's reasoning (whether Render health checks count as traffic; Render's RAM). Not done and not possible here: the actual deployment (needs your accounts), so the guide's UI steps are untested against the live dashboards; the production address assumes the Render service is named `acme-salary-api`.
-**Result:** `./mvnw test` passes (140 tests, 14 new), `npm test` passes (185 tests), `npm run build` succeeds, Docker image builds and runs, `npm ci` from the lockfile succeeds.
+### P7. Job title comparison (`feat(frontend): compare a job title across countries`)
+**Prompt:** Pick a job title and see its average in every country, each in its own currency.
+**Review:** No backend change: three small requests to the existing endpoint. If any country fails, the whole comparison fails with Retry, so I never compare two countries while three are expected. Amounts show the ISO code, are not converted, and are not ranked or charted on one scale, since that would treat USD, INR and GBP as one unit. A real-browser check found right-aligned amounts leaking in from a table rule; fixed. A single backend endpoint is the cleaner alternative.
+**Result:** 181 specs passing.
 
-## P8b: Frontend host moved from Netlify to Vercel
-**Prompt (summary):** Netlify suspended the account. Deploy the frontend on Vercel instead, give the steps, and record why we shifted.
-**What the AI did:** Researched Vercel Hobby limits and `vercel.json` syntax from Vercel's docs. Added `frontend/vercel.json` (SPA rewrite, same security headers and CSP as before, install command, output directory). Removed `netlify.toml`, `_headers` and `_redirects`. Rewrote section 3 of `docs/deployment.md` (with the reason for the change), the limits table and sources; updated ADR 004 and the comment in `environment.ts`. Verified the CSP in `vercel.json` is identical to the old `_headers` one and that `connect-src` matches `apiBaseUrl`; `npm run build` still succeeds.
-**Not verified:** the rewrite and headers on a live Vercel deployment; dashboard menu names; Vercel's default Node version.
-**My review:** TODO (author)
+## Deployment
 
-## E1: Clear filters button
-**Prompt (summary):** Add a "Clear Filters" option in the filter row, beside the filter options.
-**What the AI did:** Wrote five failing specs first (button sits in the filter row, disabled while nothing is filtered, enabled after a filter, one request that clears search/country/department/salary range and keeps the page size, no stale search request when cleared mid-typing). Then added `clearFilters()` and a `filtered` computed (also reused by the total-count wording), a stroked button in the filter row, and changed the search debounce to compare with the applied term instead of `distinctUntilChanged`, so a search cleared while still being typed sends nothing.
-**Result:** `npm test` 190 passing (5 new), `npm run build` succeeds. Layout not checked in a browser.
-**My review:** TODO (author)
+### P8. Hardening and deployment configuration (`feat: production hardening, Dockerfile and deployment guide`)
+**Prompt:** Pre-check both suites, security headers, request logging, environment-based configuration, Dockerfile, production API URL, deployment guide with free-tier limits.
+**Review:** Two plain servlet filters instead of Spring Security (there is no login). Security headers go on every response; request logging never records query strings (they hold search terms and salary bounds) or bodies. I built the image and ran it: health, headers, CORS (allowed origin 200, other origin 403) and `/actuator/env` 404 all checked. My first CSP broke the app because Angular's production build inlines an `onload` handler; fixed by turning off critical-CSS inlining and re-checked in headless Chrome. Render's health check would have queried the database every few seconds and kept Neon awake all day, so health checks use the liveness probe (test first). Free-tier numbers come from the providers' pages, listed in `docs/deployment.md`.
+**Result:** 140 backend tests, 185 frontend specs, builds clean.
+
+### P8b. Free-tier guard rails
+**Prompt:** Make sure no service runs out of its free tier; list dashboard steps.
+**Review:** All three providers stop service instead of billing when no card is on file, so I never added one. Other controls: cap Neon compute at 0.25 CU, deploy Render by hand if needed, check usage pages. Not done: rate limiting (a new feature outside the requirements).
+
+### P8c. Netlify to Vercel
+**Prompt:** Netlify suspended my account at sign-up, so move the frontend to Vercel and record why.
+**Review:** Routing rewrite, security headers and CSP moved into `frontend/vercel.json`; the CSP is identical to the old one (checked by script). `docs/deployment.md` and ADR 004 now say why.
+
+### P8d. Getting the live site working
+**Prompt:** Debug the deploy errors I pasted.
+**Review:** Four separate faults: (1) Render built an old commit because P8 was not pushed yet; (2) `DB_URL` contained the username and password, which the driver rejects; (3) the name `acme-salary-api` was already taken on Render, so the real address is `acme-salary-api-xawz`, and the frontend was calling a stranger's service until I compared responses with curl and corrected `environment.ts` and the CSP; (4) CORS returned 403 until `CORS_ALLOWED_ORIGINS` held the exact Vercel address. A database password pasted in chat and in a log was rotated.
+
+### E1. Clear filters (`feat(frontend): clear filters button in the employee list`)
+**Prompt:** A "Clear filters" button beside the filter options.
+**Review:** Five failing specs first. One request clears search, country, department and salary range, and keeps the page size. The search debounce now compares with the applied term instead of the previous keystroke, so clearing while still typing sends nothing. Layout not yet checked in a browser.
+**Result:** 190 specs passing.

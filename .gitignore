@@ -15,5 +15,3 @@ frontend/.angular/
 *.iml
 .local/
 
-# Local planning notes
-docs/development-plan.md
