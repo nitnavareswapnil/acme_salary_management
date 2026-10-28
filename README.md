@@ -6,7 +6,7 @@ Web app for an HR Manager to manage the salaries of 10,000 employees across the 
 |---|---|
 | **Live app** | https://acme-salary-management-eosin.vercel.app |
 | **API** | https://acme-salary-api-xawz.onrender.com (for example `/api/insights/countries`) |
-| **Demo video** | _link to be added_ |
+| **Demo video** | https://drive.google.com/file/d/1BSc9mWmn1xSEHWwC1XRbrFZ8U00Khub_/view?usp=sharing |
 
 > The API runs on a free host that sleeps after 15 idle minutes. The first request after a quiet period can take about a minute (Render wakes the container, then Neon wakes the database). Open the app once and wait before judging speed.
 
